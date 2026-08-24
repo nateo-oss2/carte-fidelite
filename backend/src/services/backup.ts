@@ -9,22 +9,30 @@ const BACKUP_DIR = path.join(__dirname, "..", "..", "backups");
 const RETENTION_COUNT = 14; // garde les 14 dernières sauvegardes (quotidiennes ~2 semaines)
 
 /**
- * Sauvegarde la base via pg_dump (exécuté dans le conteneur Postgres local — voir le
- * commentaire dans scripts/backup-database.ts pour l'équivalent en vraie production).
+ * Sauvegarde la base via pg_dump, directement contre DATABASE_URL — fonctionne aussi bien en
+ * local (Postgres dans Docker) qu'en production, tant que le binaire pg_dump est présent dans
+ * l'environnement d'exécution.
+ *
+ * IMPORTANT en production (Railway ou autre hébergeur géré) : le disque du conteneur est
+ * généralement éphémère — un fichier écrit ici ne survit pas à un redéploiement. Cette
+ * fonction reste utile pour un export ponctuel à la demande, mais pour une vraie continuité
+ * de sauvegarde, préférez la sauvegarde automatique native de votre fournisseur Postgres
+ * (Railway propose ça nativement dans les réglages du service Postgres) — bien plus fiable
+ * qu'un fichier local.
  */
 export async function runDatabaseBackup(): Promise<{ file: string; sizeBytes: number }> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL_NOT_CONFIGURED");
+  }
+
   await mkdir(BACKUP_DIR, { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const filename = `backup-${timestamp}.sql.gz`;
   const filePath = path.join(BACKUP_DIR, filename);
-  const containerName = process.env.BACKUP_POSTGRES_CONTAINER || "loyalty-postgres";
-  const dbUser = process.env.BACKUP_POSTGRES_USER || "loyalty";
-  const dbName = process.env.BACKUP_POSTGRES_DB || "loyalty_platform";
 
-  await execAsync(
-    `docker exec ${containerName} pg_dump -U ${dbUser} ${dbName} | gzip > "${filePath}"`,
-  );
+  await execAsync(`pg_dump "${databaseUrl}" | gzip > "${filePath}"`);
 
   const stats = await stat(filePath);
   await pruneOldBackups();
