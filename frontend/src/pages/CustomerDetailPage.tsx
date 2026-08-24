@@ -56,6 +56,14 @@ export function CustomerDetailPage() {
   }
 
   const displayName = [customer.firstName, customer.lastName].filter(Boolean).join(" ") || customer.loyaltyNumber;
+  const initials =
+    [customer.firstName?.[0], customer.lastName?.[0]].filter(Boolean).join("").toUpperCase() ||
+    customer.loyaltyNumber.slice(0, 2);
+  const memberSince = new Date(customer.createdAt).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <div className="min-h-screen px-6 py-10 max-w-md mx-auto">
@@ -63,31 +71,46 @@ export function CustomerDetailPage() {
         ← Retour aux clients
       </Link>
 
-      <h1 className="text-lg font-bold uppercase tracking-widest mt-4 mb-1" style={{ fontFamily: "var(--font-display)" }}>
-        {displayName}
-      </h1>
-      <p className="text-xs text-black/40 mb-6">
-        N° client : {customer.loyaltyNumber}
-        {!customer.hasActiveCard && " · carte révoquée"}
-      </p>
-
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="rounded-2xl border border-black/10 bg-white p-4">
-          <p className="text-xs text-black/45 mb-1">Solde actuel</p>
-          <p className="text-xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-            {customer.pointsBalance} pts
-          </p>
+      <div className="flex items-center gap-4 mt-5 mb-7">
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center text-base font-bold text-white flex-shrink-0"
+          style={{ fontFamily: "var(--font-display)", background: "linear-gradient(150deg, #171512, #3a352c)" }}
+        >
+          {initials}
         </div>
-        <div className="rounded-2xl border border-black/10 bg-white p-4">
-          <p className="text-xs text-black/45 mb-1">Cumul total</p>
-          <p className="text-xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-            {customer.lifetimePoints} pts
+        <div>
+          <h1 className="text-lg font-bold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+            {displayName}
+          </h1>
+          <p className="text-xs text-black/40 mt-0.5">
+            Client·e depuis le {memberSince}
+            {!customer.hasActiveCard && " · carte révoquée"}
           </p>
         </div>
       </div>
 
+      <div className="rounded-2xl border border-black/10 bg-white px-5 py-4 mb-4 flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40">Numéro de fidélité</p>
+        <p className="text-sm font-mono tracking-wider text-black/85">{customer.loyaltyNumber}</p>
+      </div>
+
+      <div className="rounded-2xl border border-black/10 bg-white p-5 mb-6">
+        <div className="flex items-baseline gap-2 mb-4">
+          <span className="text-4xl font-extrabold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+            {customer.pointsBalance}
+          </span>
+          <span className="text-xs text-black/45">points disponibles</span>
+        </div>
+        <div className="flex items-center gap-2 pt-3 border-t border-black/5">
+          <span className="text-[11px] uppercase tracking-widest text-black/40">Cumul total</span>
+          <span className="text-xs font-mono text-black/60 ml-auto">{customer.lifetimePoints} pts</span>
+        </div>
+      </div>
+
       <div className="rounded-2xl border border-black/10 bg-white p-5 mb-6 flex flex-col items-center gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-black/45 self-start">Code-barres</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 self-start">
+          Code-barres — Code 128
+        </p>
         {!customer.hasActiveCard ? (
           <p className="text-sm text-black/40 py-6">Ce client n'a plus de carte active.</p>
         ) : role !== "ADMIN" && role !== "MANAGER" ? (
@@ -97,38 +120,51 @@ export function CustomerDetailPage() {
         ) : barcodeError ? (
           <p className="text-sm text-red-600 py-6">Impossible de charger le code-barres.</p>
         ) : barcodeSrc ? (
-          <img src={barcodeSrc} alt="Code-barres du client" className="w-full max-w-[280px]" />
+          <>
+            <img src={barcodeSrc} alt="Code-barres du client" className="w-full max-w-[280px]" />
+            <p className="text-xs font-mono tracking-widest text-black/50">{customer.loyaltyNumber}</p>
+          </>
         ) : (
           <p className="text-sm text-black/40 py-6">Chargement…</p>
         )}
       </div>
 
       <div className="rounded-2xl border border-black/10 bg-white overflow-hidden">
-        <p className="text-xs font-semibold uppercase tracking-wide text-black/45 px-5 pt-4 pb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 px-5 pt-4 pb-2">
           Achats et points récents
         </p>
         {customer.recentTransactions.length === 0 ? (
           <p className="text-sm text-black/40 px-5 pb-5">Aucune transaction pour le moment.</p>
         ) : (
           <ul>
-            {customer.recentTransactions.map((tx) => (
-              <li key={tx.id} className="px-5 py-3 border-t border-black/5 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">
-                    {TYPE_LABELS[tx.type] ?? tx.type}
-                    {tx.status === "REVERSED" && <span className="text-black/40"> (remboursé)</span>}
-                  </p>
-                  <p className="text-xs text-black/40">{new Date(tx.createdAt).toLocaleString("fr-FR")}</p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold">{tx.amount} €</p>
-                  <p className={`text-xs ${tx.pointsDelta >= 0 ? "text-green-700" : "text-red-600"}`}>
-                    {tx.pointsDelta >= 0 ? "+" : ""}
-                    {tx.pointsDelta} pts
-                  </p>
-                </div>
-              </li>
-            ))}
+            {customer.recentTransactions.map((tx) => {
+              const isPositive = tx.pointsDelta >= 0;
+              return (
+                <li key={tx.id} className="px-5 py-3 border-t border-black/5 flex items-center gap-3">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
+                      isPositive ? "bg-green-700/10 text-green-700" : "bg-red-600/10 text-red-600"
+                    }`}
+                  >
+                    {isPositive ? "+" : "–"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {TYPE_LABELS[tx.type] ?? tx.type}
+                      {tx.status === "REVERSED" && <span className="text-black/40"> (remboursé)</span>}
+                    </p>
+                    <p className="text-xs text-black/40 font-mono">{new Date(tx.createdAt).toLocaleString("fr-FR")}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold">{tx.amount} €</p>
+                    <p className={`text-xs font-mono ${isPositive ? "text-green-700" : "text-red-600"}`}>
+                      {isPositive ? "+" : ""}
+                      {tx.pointsDelta} pts
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
