@@ -53,6 +53,7 @@ export interface CompanyDashboardData {
     accentColor: string;
     logoUrl: string | null;
     joinToken: string;
+    scanToken: string;
     pointsPerCurrencyUnit: string;
   };
   stats: {
@@ -76,6 +77,10 @@ export interface CompanyDashboardData {
 
 export function getCompanyDashboard(slug: string): Promise<CompanyDashboardData> {
   return request(`/company/${slug}/dashboard`);
+}
+
+export function regenerateScanToken(slug: string): Promise<{ scanToken: string }> {
+  return request(`/company/${slug}/dashboard/regenerate-scan-token`, { method: "POST" });
 }
 
 export function qrCodeUrl(joinToken: string): string {

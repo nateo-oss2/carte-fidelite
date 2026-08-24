@@ -15,11 +15,13 @@ import { CompanyEmployeesPage } from "./pages/CompanyEmployeesPage";
 import { CompanyCustomersPage } from "./pages/CompanyCustomersPage";
 import { CompanyProgramPage } from "./pages/CompanyProgramPage";
 import { CustomerDetailPage } from "./pages/CustomerDetailPage";
+import { ScanConsolePage } from "./pages/ScanConsolePage";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/join/:companyToken" element={<JoinPage />} />
+      <Route path="/scan-console/:scanToken" element={<ScanConsolePage />} />
       <Route path="/join" element={<CenteredNotice />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin/forgot-password" element={<AdminForgotPasswordPage />} />
