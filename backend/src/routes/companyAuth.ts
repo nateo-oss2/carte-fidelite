@@ -27,7 +27,7 @@ function setSessionCookie(res: Response, token: string) {
   res.cookie(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "lax",
+    sameSite: isProduction ? "none" : "lax",
     maxAge: 12 * 60 * 60 * 1000,
   });
 }
