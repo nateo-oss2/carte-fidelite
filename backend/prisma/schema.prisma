@@ -1,0 +1,561 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Plateforme — administrateur principal (créateur de la plateforme)
+// ---------------------------------------------------------------------------
+
+model PlatformAdmin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  mfaSecret    String?
+  mfaEnabled   Boolean  @default(false)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  auditLogs AuditLog[]
+
+  @@map("platform_admins")
+}
+
+// ---------------------------------------------------------------------------
+// Entreprise (tenant)
+// ---------------------------------------------------------------------------
+
+enum CompanyStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum ProgramType {
+  POINTS
+  DISCOUNT
+}
+
+model Company {
+  id                    String        @id @default(uuid())
+  name                  String
+  slug                  String        @unique
+  logoUrl               String?
+  accentColor           String        @default("#B08D57")
+  programName           String        @default("Programme fidélité")
+  // Points attribués par unité monétaire dépensée (règle par défaut : 1€ = 1 point)
+  pointsPerCurrencyUnit Decimal       @default(1) @db.Decimal(6, 2)
+  status                CompanyStatus @default(ACTIVE)
+
+  // POINTS : les points s'échangent contre des récompenses (Reward) définies par l'entreprise.
+  // DISCOUNT : le cumul de points fait progresser le client dans des paliers de réduction
+  // (DiscountTier) que l'entreprise configure et modifie librement, à tout moment.
+  programType ProgramType @default(POINTS)
+
+  // Lien d'inscription QR — stable, régénérable/révocable depuis le dashboard entreprise
+  joinToken          String    @unique @default(cuid())
+  joinTokenRevokedAt DateTime?
+
+  // Relance automatique par inactivité : envoyée à tout client sans achat depuis N jours,
+  // répétée tous les N jours tant qu'il reste inactif (voir services/inactivityReminders.ts).
+  inactivityReminderEnabled Boolean @default(false)
+  inactivityThresholdDays   Int     @default(30)
+  inactivityReminderSubject String  @default("On ne vous a pas vu depuis un moment !")
+  inactivityReminderMessage String  @default("Bonjour,\n\nÇa fait un moment que nous ne vous avons pas vu. Découvrez nos nouveautés et offres du moment !\n\nÀ bientôt,")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customers      Customer[]
+  employees      Employee[]
+  terminals      Terminal[]
+  transactions   Transaction[]
+  walletPasses   WalletPass[]
+  auditLogs      AuditLog[]
+  notifications  CustomerNotification[]
+  rewards        Reward[]
+  discountTiers  DiscountTier[]
+  emailConfig    CompanyEmailConfig?
+  securityAlerts SecurityAlert[]
+
+  @@map("companies")
+}
+
+// ---------------------------------------------------------------------------
+// Client final (porteur de carte de fidélité)
+// ---------------------------------------------------------------------------
+
+enum CustomerStatus {
+  ACTIVE
+  BLOCKED
+}
+
+model Customer {
+  id        String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  firstName String?
+  lastName  String?
+  email     String?
+  phone     String?
+
+  // Identifiant lisible imprimé/affiché (non secret), distinct du token du code-barres
+  loyaltyNumber String @unique
+
+  // Solde dépensable, contrôlé exclusivement côté serveur — jamais modifié directement,
+  // uniquement dérivé de la somme des transactions (balanceAfter de la dernière transaction).
+  // Diminue quand une récompense est échangée (mode POINTS).
+  pointsBalance Int @default(0)
+
+  // Cumul total de points jamais gagnés, ne diminue JAMAIS lors d'un échange de récompense
+  // (seulement lors d'un remboursement, qui annule le gain d'origine). Sert de base aux
+  // paliers de réduction (mode DISCOUNT) : la progression de fidélité ne doit pas reculer
+  // simplement parce que le client a utilisé ses points.
+  lifetimePoints Int @default(0)
+
+  // Dernière relance automatique par inactivité envoyée — sert à espacer les relances
+  // (jamais plus d'une par seuil d'inactivité configuré par l'entreprise).
+  lastAutoReminderSentAt DateTime?
+
+  status    CustomerStatus @default(ACTIVE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  tokens        CustomerToken[]
+  transactions  Transaction[]
+  walletPasses  WalletPass[]
+  notifications CustomerNotification[]
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@map("customers")
+}
+
+// ---------------------------------------------------------------------------
+// Tokens de fidélité (valeur encodée dans le code-barres)
+// Stockés hashés — jamais en clair — avec rotation/révocation (section 14 du brief).
+// ---------------------------------------------------------------------------
+
+enum TokenStatus {
+  ACTIVE
+  REVOKED
+}
+
+model CustomerToken {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Hash SHA-256 du token — utilisé pour toute vérification au scan (irréversible).
+  tokenHash String @unique
+
+  // Chiffrement réversible (AES-256-GCM, clé applicative) du même token — utilisé UNIQUEMENT
+  // pour reconstruire un pass Wallet à la demande d'Apple/Google, jamais pour le scan.
+  encryptedToken String?
+
+  status TokenStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@index([customerId, status])
+  @@map("customer_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Employés de l'entreprise (comptes staff)
+// ---------------------------------------------------------------------------
+
+enum EmployeeRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+model Employee {
+  id           String       @id @default(uuid())
+  companyId    String
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name         String
+  email        String
+  passwordHash String
+  role         EmployeeRole @default(EMPLOYEE)
+  active       Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions  Transaction[]
+  auditLogs     AuditLog[]
+  notifications CustomerNotification[]
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@map("employees")
+}
+
+// ---------------------------------------------------------------------------
+// Terminaux autorisés (postes de caisse / appareils de scan)
+// ---------------------------------------------------------------------------
+
+model Terminal {
+  id         String   @id @default(uuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  label      String
+  apiKeyHash String   @unique
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  transactions Transaction[]
+
+  @@index([companyId])
+  @@map("terminals")
+}
+
+// ---------------------------------------------------------------------------
+// Transactions — ledger immuable (aucune mise à jour destructive du solde)
+// ---------------------------------------------------------------------------
+
+enum TransactionType {
+  PURCHASE
+  REFUND
+  ADJUSTMENT
+  REDEMPTION
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+model Transaction {
+  id        String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  terminalId String?
+  terminal   Terminal? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+
+  type   TransactionType   @default(PURCHASE)
+  status TransactionStatus @default(COMPLETED)
+
+  // Montant de l'achat en euros (positif). Pour un remboursement, voir relatedTransaction.
+  amount Decimal @db.Decimal(10, 2)
+
+  // Delta de points appliqué par cette transaction (peut être négatif : remboursement/ajustement)
+  pointsDelta Int
+
+  // Solde du client immédiatement après cette transaction — dénormalisé pour lecture rapide,
+  // mais toujours dérivable en rejouant le ledger complet.
+  balanceAfter Int
+
+  // Empêche tout double-crédit en cas de double clic / re-envoi réseau
+  idempotencyKey String @unique
+
+  relatedTransactionId String?
+  relatedTransaction   Transaction?  @relation("TransactionReversals", fields: [relatedTransactionId], references: [id], onDelete: SetNull)
+  reversals            Transaction[] @relation("TransactionReversals")
+
+  // Renseigné uniquement pour type = REDEMPTION : la récompense échangée contre des points.
+  rewardId String?
+  reward   Reward? @relation(fields: [rewardId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, customerId])
+  @@index([companyId, createdAt])
+  @@map("transactions")
+}
+
+// ---------------------------------------------------------------------------
+// Programme de fidélité configurable par entreprise — mode POINTS (catalogue de récompenses
+// échangeables) ou mode DISCOUNT (paliers de réduction selon le cumul de points). L'entreprise
+// crée/modifie ses propres règles à tout moment depuis son dashboard.
+// ---------------------------------------------------------------------------
+
+model Reward {
+  id        String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  name       String
+  pointsCost Int
+  active     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  redemptions Transaction[]
+
+  @@index([companyId])
+  @@map("rewards")
+}
+
+model DiscountTier {
+  id        String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  label String // nom libre, ex: "Argent", "Or"
+
+  // Cumul de points (lifetimePoints) à partir duquel ce palier s'applique.
+  thresholdPoints Int
+
+  // Pourcentage de réduction appliqué à ce palier, ex: 10.00 = 10%.
+  discountPercent Decimal @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, thresholdPoints])
+  @@index([companyId])
+  @@map("discount_tiers")
+}
+
+// ---------------------------------------------------------------------------
+// Passes Wallet (Apple / Google) — un par client et par type de wallet
+// ---------------------------------------------------------------------------
+
+enum WalletType {
+  APPLE
+  GOOGLE
+}
+
+enum WalletPassStatus {
+  ACTIVE
+  REVOKED
+}
+
+model WalletPass {
+  id        String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  walletType WalletType
+
+  // Identifiant du type de pass (Apple Pass Type ID, ou classId Google Wallet)
+  passIdentifier String
+
+  // Numéro de série unique du pass (Apple serialNumber / suffixe de l'objet Google)
+  serialNumber String @unique
+
+  // Jeton d'authentification remis à Apple Wallet pour les push d'update (webServiceURL),
+  // vérifié sur chaque appel du protocole PassKit — jamais exposé côté client.
+  appleAuthToken String?
+
+  status       WalletPassStatus @default(ACTIVE)
+  lastPushedAt DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  appleDeviceRegistrations AppleDeviceRegistration[]
+
+  @@unique([companyId, customerId, walletType])
+  @@index([companyId])
+  @@map("wallet_passes")
+}
+
+// ---------------------------------------------------------------------------
+// Enregistrements d'appareils Apple Wallet — protocole PassKit Web Service officiel :
+// un appareil s'enregistre pour recevoir un push silencieux quand le pass doit être mis à jour.
+// ---------------------------------------------------------------------------
+
+model AppleDeviceRegistration {
+  id                      String     @id @default(uuid())
+  deviceLibraryIdentifier String
+  pushToken               String
+  walletPassId            String
+  walletPass              WalletPass @relation(fields: [walletPassId], references: [id], onDelete: Cascade)
+  createdAt               DateTime   @default(now())
+
+  @@unique([deviceLibraryIdentifier, walletPassId])
+  @@index([walletPassId])
+  @@map("apple_device_registrations")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications e-mail envoyées aux clients depuis le dashboard entreprise — soit manuelles
+// (déclenchées par un employé), soit automatiques (relance d'inactivité programmée).
+// ---------------------------------------------------------------------------
+
+enum NotificationStatus {
+  SENT
+  FAILED
+}
+
+enum NotificationOrigin {
+  MANUAL
+  AUTOMATIC
+}
+
+model CustomerNotification {
+  id        String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  origin NotificationOrigin @default(MANUAL)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  subject     String
+  message     String
+  status      NotificationStatus
+  // Détail de l'échec le cas échéant (ex: fournisseur d'e-mail non configuré)
+  errorDetail String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([customerId])
+  @@map("customer_notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Configuration e-mail propre à chaque entreprise — chaque entreprise envoie ses
+// notifications depuis son propre fournisseur SMTP (meilleure délivrabilité, propre
+// réputation d'expéditeur), pas depuis un compte partagé par toute la plateforme.
+// ---------------------------------------------------------------------------
+
+model CompanyEmailConfig {
+  id        String  @id @default(uuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  smtpHost   String
+  smtpPort   Int     @default(587)
+  smtpSecure Boolean @default(false)
+  smtpUser   String
+
+  // Chiffré (AES-256-GCM, même mécanisme que les tokens clients) — jamais en clair en base,
+  // mais réversible : on doit pouvoir s'authentifier auprès du serveur SMTP à chaque envoi.
+  smtpPasswordEncrypted String
+
+  fromAddress String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("company_email_configs")
+}
+
+// ---------------------------------------------------------------------------
+// Journal d'audit — traçabilité des actions sensibles, non modifiable par un simple utilisateur
+// ---------------------------------------------------------------------------
+
+enum ActorType {
+  PLATFORM_ADMIN
+  EMPLOYEE
+  CUSTOMER
+  SYSTEM
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  actorType ActorType
+
+  platformAdminId String?
+  platformAdmin   PlatformAdmin? @relation(fields: [platformAdminId], references: [id], onDelete: SetNull)
+
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  // Action normalisée, ex: "LOGIN", "CUSTOMER_CREATED", "TRANSACTION_CREATED",
+  // "TRANSACTION_REFUNDED", "EMPLOYEE_CREATED", "COMPANY_SUSPENDED", "TOKEN_REVOKED"
+  action     String
+  targetType String?
+  targetId   String?
+
+  metadata  Json?
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Récupération de compte — jetons de réinitialisation de mot de passe, pour l'admin
+// plateforme comme pour les employés d'entreprise. Hashés en base comme tout secret.
+// ---------------------------------------------------------------------------
+
+enum ResetActorType {
+  PLATFORM_ADMIN
+  EMPLOYEE
+}
+
+model PasswordResetToken {
+  id        String         @id @default(uuid())
+  actorType ResetActorType
+  actorId   String
+  tokenHash String         @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime       @default(now())
+
+  @@index([actorType, actorId])
+  @@map("password_reset_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Alertes anti-fraude — générées automatiquement quand un comportement suspect est détecté
+// (rafale de transactions, montant inhabituel, token révoqué réutilisé, échecs de connexion
+// répétés...). Consultables et à traiter depuis le dashboard admin.
+// ---------------------------------------------------------------------------
+
+enum SecurityAlertType {
+  RAPID_SCAN_FAILURES
+  RAPID_TRANSACTIONS
+  UNUSUAL_AMOUNT
+  REVOKED_TOKEN_ATTEMPT
+  EXCESSIVE_LOGIN_FAILURES
+}
+
+enum SecurityAlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model SecurityAlert {
+  id         String                @id @default(uuid())
+  companyId  String?
+  company    Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  type       SecurityAlertType
+  severity   SecurityAlertSeverity @default(MEDIUM)
+  message    String
+  metadata   Json?
+  resolved   Boolean               @default(false)
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, resolved, createdAt])
+  @@map("security_alerts")
+}
