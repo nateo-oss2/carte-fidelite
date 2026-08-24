@@ -15,7 +15,6 @@ import { CompanyEmployeesPage } from "./pages/CompanyEmployeesPage";
 import { CompanyCustomersPage } from "./pages/CompanyCustomersPage";
 import { CompanyProgramPage } from "./pages/CompanyProgramPage";
 import { CustomerDetailPage } from "./pages/CustomerDetailPage";
-import { ScanPage } from "./pages/ScanPage";
 
 export default function App() {
   return (
@@ -37,7 +36,6 @@ export default function App() {
       <Route path="/company/:slug/customers" element={<CompanyCustomersPage />} />
       <Route path="/company/:slug/customers/:customerId" element={<CustomerDetailPage />} />
       <Route path="/company/:slug/program" element={<CompanyProgramPage />} />
-      <Route path="/company/:slug/scan" element={<ScanPage />} />
       <Route path="*" element={<Navigate to="/join" replace />} />
     </Routes>
   );

@@ -45,9 +45,6 @@ export function CompanyDashboardPage() {
           </h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link to={`/company/${slug}/scan`} className="text-xs text-black/50 hover:text-black">
-            Scan
-          </Link>
           <Link to={`/company/${slug}/customers`} className="text-xs text-black/50 hover:text-black">
             Clients
           </Link>
