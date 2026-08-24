@@ -96,7 +96,7 @@ router.get(
   "/me",
   requireEmployeeAuth,
   asyncHandler(async (req, res) => {
-    res.json({ name: req.employee!.name, role: req.employee!.role });
+    res.json({ id: req.employee!.id, name: req.employee!.name, role: req.employee!.role });
   }),
 );
 

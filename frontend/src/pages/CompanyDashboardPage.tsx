@@ -45,6 +45,9 @@ export function CompanyDashboardPage() {
           </h1>
         </div>
         <div className="flex items-center gap-4">
+          <Link to={`/company/${slug}/scan`} className="text-xs text-black/50 hover:text-black">
+            Scan
+          </Link>
           <Link to={`/company/${slug}/customers`} className="text-xs text-black/50 hover:text-black">
             Clients
           </Link>
@@ -54,6 +57,11 @@ export function CompanyDashboardPage() {
           {role === "ADMIN" && (
             <Link to={`/company/${slug}/employees`} className="text-xs text-black/50 hover:text-black">
               Employés
+            </Link>
+          )}
+          {role === "ADMIN" && (
+            <Link to={`/company/${slug}/terminals`} className="text-xs text-black/50 hover:text-black">
+              Terminaux
             </Link>
           )}
           <button onClick={handleLogout} className="text-xs text-black/40 hover:text-black/70">

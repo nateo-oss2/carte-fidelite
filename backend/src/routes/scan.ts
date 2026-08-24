@@ -86,7 +86,13 @@ router.post(
       lastName: customer.lastName,
       loyaltyNumber: customer.loyaltyNumber,
       pointsBalance: customer.pointsBalance,
+      lifetimePoints: customer.lifetimePoints,
+      createdAt: customer.createdAt,
       programType: company!.programType,
+      programName: company!.programName,
+      companyName: company!.name,
+      companyLogoUrl: company!.logoUrl,
+      companyAccentColor: company!.accentColor,
       availableRewards,
       currentDiscountPercent,
     });

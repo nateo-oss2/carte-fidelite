@@ -35,7 +35,7 @@ export function companyLogout(slug: string): Promise<void> {
   return request(`/company/${slug}/auth/logout`, { method: "POST" });
 }
 
-export function companyMe(slug: string): Promise<{ name: string; role: string }> {
+export function companyMe(slug: string): Promise<{ id: string; name: string; role: string }> {
   return request(`/company/${slug}/auth/me`);
 }
 
@@ -107,6 +107,25 @@ export function createEmployee(
   input: { name: string; email: string; role: string },
 ): Promise<CreateEmployeeResult> {
   return request(`/company/${slug}/employees`, { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface Terminal {
+  id: string;
+  label: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export function listTerminals(slug: string): Promise<{ terminals: Terminal[] }> {
+  return request(`/company/${slug}/terminals`);
+}
+
+export function createTerminal(slug: string, label: string): Promise<{ id: string; label: string; apiKey: string }> {
+  return request(`/company/${slug}/terminals`, { method: "POST", body: JSON.stringify({ label }) });
+}
+
+export function updateTerminal(slug: string, terminalId: string, active: boolean): Promise<Terminal> {
+  return request(`/company/${slug}/terminals/${terminalId}`, { method: "PATCH", body: JSON.stringify({ active }) });
 }
 
 export function updateEmployee(
