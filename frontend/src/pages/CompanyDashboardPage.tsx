@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  companyLogout,
-  companyMe,
-  getCompanyDashboard,
-  qrCodeUrl,
-  regenerateScanToken,
-  type CompanyDashboardData,
-} from "../lib/companyApi";
+import { companyLogout, companyMe, getCompanyDashboard, qrCodeUrl, type CompanyDashboardData } from "../lib/companyApi";
 
 export function CompanyDashboardPage() {
   const { slug = "" } = useParams();
@@ -52,6 +45,9 @@ export function CompanyDashboardPage() {
           </h1>
         </div>
         <div className="flex items-center gap-4">
+          <Link to={`/company/${slug}/scan`} className="text-xs text-black/50 hover:text-black">
+            Scan
+          </Link>
           <Link to={`/company/${slug}/customers`} className="text-xs text-black/50 hover:text-black">
             Clients
           </Link>
@@ -88,8 +84,6 @@ export function CompanyDashboardPage() {
         </div>
       </div>
 
-      {role === "ADMIN" && <ScanLinkCard slug={slug} scanToken={company.scanToken} />}
-
       <div className="rounded-2xl border border-black/10 bg-white overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-black/45 px-5 pt-4 pb-2">
           Transactions récentes
@@ -116,58 +110,6 @@ export function CompanyDashboardPage() {
           </ul>
         )}
       </div>
-    </div>
-  );
-}
-
-function ScanLinkCard({ slug, scanToken }: { slug: string; scanToken: string }) {
-  const [currentToken, setCurrentToken] = useState(scanToken);
-  const [copied, setCopied] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
-  const link = `${window.location.origin}/scan-console/${currentToken}`;
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function handleRegenerate() {
-    if (!confirm("Régénérer ce lien ? L'ancien lien cessera immédiatement de fonctionner.")) return;
-    setRegenerating(true);
-    try {
-      const res = await regenerateScanToken(slug);
-      setCurrentToken(res.scanToken);
-    } finally {
-      setRegenerating(false);
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 mb-6">
-      <p className="text-sm font-semibold mb-1">Lien de l'écran de scan</p>
-      <p className="text-xs text-black/50 mb-3">
-        Ouvrez ce lien sur l'appareil en caisse — pas de connexion requise, gardez-le ouvert toute la journée.
-        Ne le partagez qu'avec des postes de confiance.
-      </p>
-      <div className="flex items-center gap-2">
-        <code className="flex-1 min-w-0 truncate rounded-xl bg-black/[0.04] px-3 py-2 text-xs">{link}</code>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="text-xs font-semibold uppercase tracking-wide px-3 py-2 rounded-lg text-black/70 border border-black/10 hover:border-black/30 flex-shrink-0"
-        >
-          {copied ? "Copié !" : "Copier"}
-        </button>
-      </div>
-      <button
-        type="button"
-        onClick={handleRegenerate}
-        disabled={regenerating}
-        className="text-xs text-red-600 hover:text-red-700 mt-3 disabled:opacity-50"
-      >
-        {regenerating ? "Régénération…" : "Régénérer ce lien"}
-      </button>
     </div>
   );
 }

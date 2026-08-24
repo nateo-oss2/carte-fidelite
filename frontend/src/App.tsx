@@ -15,13 +15,12 @@ import { CompanyEmployeesPage } from "./pages/CompanyEmployeesPage";
 import { CompanyCustomersPage } from "./pages/CompanyCustomersPage";
 import { CompanyProgramPage } from "./pages/CompanyProgramPage";
 import { CustomerDetailPage } from "./pages/CustomerDetailPage";
-import { ScanConsolePage } from "./pages/ScanConsolePage";
+import { ScanPage } from "./pages/ScanPage";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/join/:companyToken" element={<JoinPage />} />
-      <Route path="/scan-console/:scanToken" element={<ScanConsolePage />} />
       <Route path="/join" element={<CenteredNotice />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin/forgot-password" element={<AdminForgotPasswordPage />} />
@@ -38,6 +37,7 @@ export default function App() {
       <Route path="/company/:slug/customers" element={<CompanyCustomersPage />} />
       <Route path="/company/:slug/customers/:customerId" element={<CustomerDetailPage />} />
       <Route path="/company/:slug/program" element={<CompanyProgramPage />} />
+      <Route path="/company/:slug/scan" element={<ScanPage />} />
       <Route path="*" element={<Navigate to="/join" replace />} />
     </Routes>
   );

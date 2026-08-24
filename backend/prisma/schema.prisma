@@ -61,11 +61,6 @@ model Company {
   joinToken          String    @unique @default(cuid())
   joinTokenRevokedAt DateTime?
 
-  // Lien de l'écran de scan (caisse) — non authentifié par mot de passe : sa confidentialité
-  // repose sur le fait que ce jeton n'est jamais rendu public (contrairement à joinToken,
-  // affiché en boutique). Régénérable depuis le dashboard, ce qui invalide l'ancien lien.
-  scanToken String @unique @default(cuid())
-
   // Relance automatique par inactivité : envoyée à tout client sans achat depuis N jours,
   // répétée tous les N jours tant qu'il reste inactif (voir services/inactivityReminders.ts).
   inactivityReminderEnabled Boolean @default(false)

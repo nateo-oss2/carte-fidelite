@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { HttpError } from "../lib/httpError";
+import { requireEmployeeAuth } from "../middleware/companyAuth";
 import { resolveCustomerByToken, wasTokenRevoked } from "../services/tokens";
 import { recordAuditLog } from "../services/auditLog";
 import { prisma } from "../prisma";
@@ -12,12 +13,12 @@ import { alertRevokedTokenAttempt, checkAndAlertRapidScanFailures } from "../ser
 import { recordPurchase, redeemReward } from "../services/transactions";
 
 /**
- * Écran de scan en caisse — page web autonome, séparée du dashboard de gestion.
- * Pas de compte employé ni de mot de passe : la confidentialité du lien lui-même
- * (scanToken, jamais rendu public contrairement à joinToken) fait office de protection.
- * Régénérable à tout moment depuis le dashboard si le lien a fuité.
+ * Scan et encaissement depuis le dashboard entreprise — authentifié par la session employé
+ * (pas de clé de terminal séparée : un employé connecté sur un poste peut scanner directement).
  */
 const router = Router({ mergeParams: true });
+
+router.use(requireEmployeeAuth);
 
 const scanLimiter = rateLimit({
   windowMs: 60_000,
@@ -26,33 +27,15 @@ const scanLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-async function requireCompanyByScanToken(scanToken: string) {
-  const company = await prisma.company.findUnique({ where: { scanToken } });
-  if (!company || company.status !== "ACTIVE") {
-    throw new HttpError(404, "SCAN_LINK_INVALID");
-  }
-  return company;
-}
-
-/** GET /scan-console/:scanToken — infos publiques d'affichage (nom/logo de l'entreprise). */
-router.get(
-  "/",
-  asyncHandler(async (req, res) => {
-    const company = await requireCompanyByScanToken(req.params.scanToken);
-    res.json({ companyName: company.name, companyLogoUrl: company.logoUrl, companyAccentColor: company.accentColor });
-  }),
-);
-
 const resolveSchema = z.object({
   token: z.string().min(10).max(64),
 });
 
+/** POST /company/:slug/scan/resolve — identifie un client à partir du token scanné. */
 router.post(
   "/resolve",
   scanLimiter,
   asyncHandler(async (req, res) => {
-    const company = await requireCompanyByScanToken(req.params.scanToken);
-
     const parsed = resolveSchema.safeParse(req.body);
     if (!parsed.success) {
       throw new HttpError(400, "INVALID_INPUT");
@@ -60,30 +43,33 @@ router.post(
 
     const customer = await resolveCustomerByToken(parsed.data.token);
 
-    if (!customer || customer.companyId !== company.id) {
+    if (!customer || customer.companyId !== req.employee!.companyId) {
       await recordAuditLog({
-        companyId: company.id,
-        actorType: "SYSTEM",
+        companyId: req.employee!.companyId,
+        actorType: "EMPLOYEE",
+        employeeId: req.employee!.id,
         action: "SCAN_TOKEN_INVALID",
         ipAddress: req.ip ?? null,
       });
-      await checkAndAlertRapidScanFailures(company.id, req.ip ?? "unknown");
+      await checkAndAlertRapidScanFailures(req.employee!.companyId, req.employee!.id);
       if (await wasTokenRevoked(parsed.data.token)) {
-        await alertRevokedTokenAttempt(company.id, req.ip ?? "unknown");
+        await alertRevokedTokenAttempt(req.employee!.companyId, req.employee!.id);
       }
       throw new HttpError(404, "CUSTOMER_NOT_FOUND");
     }
 
+    const company = await prisma.company.findUnique({ where: { id: req.employee!.companyId } });
+
     let availableRewards: Array<{ id: string; name: string; pointsCost: number }> = [];
     let currentDiscountPercent: string | null = null;
 
-    if (company.programType === "POINTS") {
-      const rewards = await listRewards(company.id, true);
+    if (company!.programType === "POINTS") {
+      const rewards = await listRewards(req.employee!.companyId, true);
       availableRewards = rewards
         .filter((r) => r.pointsCost <= customer.pointsBalance)
         .map((r) => ({ id: r.id, name: r.name, pointsCost: r.pointsCost }));
     } else {
-      const tiers = await listDiscountTiers(company.id);
+      const tiers = await listDiscountTiers(req.employee!.companyId);
       const tier = resolveApplicableTier(tiers, customer.lifetimePoints);
       currentDiscountPercent = tier ? tier.discountPercent.toString() : null;
     }
@@ -96,11 +82,11 @@ router.post(
       pointsBalance: customer.pointsBalance,
       lifetimePoints: customer.lifetimePoints,
       createdAt: customer.createdAt,
-      programType: company.programType,
-      programName: company.programName,
-      companyName: company.name,
-      companyLogoUrl: company.logoUrl,
-      companyAccentColor: company.accentColor,
+      programType: company!.programType,
+      programName: company!.programName,
+      companyName: company!.name,
+      companyLogoUrl: company!.logoUrl,
+      companyAccentColor: company!.accentColor,
       availableRewards,
       currentDiscountPercent,
     });
@@ -113,20 +99,20 @@ const purchaseSchema = z.object({
   idempotencyKey: z.string().min(8).max(100),
 });
 
+/** POST /company/:slug/scan/transactions — enregistre un achat pour le client scanné. */
 router.post(
   "/transactions",
   asyncHandler(async (req, res) => {
-    const company = await requireCompanyByScanToken(req.params.scanToken);
-
     const parsed = purchaseSchema.safeParse(req.body);
     if (!parsed.success) {
       throw new HttpError(400, "INVALID_INPUT");
     }
 
     const transaction = await recordPurchase({
-      companyId: company.id,
+      companyId: req.employee!.companyId,
       customerId: parsed.data.customerId,
       amount: parsed.data.amount,
+      employeeId: req.employee!.id,
       idempotencyKey: parsed.data.idempotencyKey,
     });
 
@@ -145,20 +131,20 @@ const redeemSchema = z.object({
   idempotencyKey: z.string().min(8).max(100),
 });
 
+/** POST /company/:slug/scan/transactions/redeem — échange une récompense pour le client scanné. */
 router.post(
   "/transactions/redeem",
   asyncHandler(async (req, res) => {
-    const company = await requireCompanyByScanToken(req.params.scanToken);
-
     const parsed = redeemSchema.safeParse(req.body);
     if (!parsed.success) {
       throw new HttpError(400, "INVALID_INPUT");
     }
 
     const transaction = await redeemReward({
-      companyId: company.id,
+      companyId: req.employee!.companyId,
       customerId: parsed.data.customerId,
       rewardId: parsed.data.rewardId,
+      employeeId: req.employee!.id,
       idempotencyKey: parsed.data.idempotencyKey,
     });
 

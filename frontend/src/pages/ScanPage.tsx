@@ -1,41 +1,32 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  getScanConsoleInfo,
+  ApiError,
+  companyMe,
   recordScanPurchase,
   redeemScanReward,
   resolveScan,
-  ScanConsoleError,
-  type ScanConsoleInfo,
   type ScanResolveResult,
   type TransactionResult,
-} from "../lib/scanConsoleApi";
+} from "../lib/companyApi";
 
-export function ScanConsolePage() {
-  const { scanToken = "" } = useParams();
+export function ScanPage() {
+  const { slug = "" } = useParams();
+  const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [info, setInfo] = useState<ScanConsoleInfo | null>(null);
 
   useEffect(() => {
-    getScanConsoleInfo(scanToken)
-      .then(setInfo)
-      .catch(() => setInfo(null))
+    companyMe(slug)
+      .then(() => {})
+      .catch(() => navigate(`/company/${slug}/login`))
       .finally(() => setChecking(false));
-  }, [scanToken]);
+  }, [slug, navigate]);
 
   if (checking) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-black/40">Chargement…</div>;
   }
 
-  if (!info) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6 text-center text-sm text-black/50">
-        Ce lien de scan est invalide ou a été régénéré. Demandez le nouveau lien à un administrateur.
-      </div>
-    );
-  }
-
-  return <ScanConsole scanToken={scanToken} info={info} />;
+  return <ScanConsole slug={slug} />;
 }
 
 type ConsoleState =
@@ -44,7 +35,7 @@ type ConsoleState =
   | { mode: "error"; message: string }
   | { mode: "result"; data: ScanResolveResult };
 
-function ScanConsole({ scanToken, info }: { scanToken: string; info: ScanConsoleInfo }) {
+function ScanConsole({ slug }: { slug: string }) {
   const [state, setState] = useState<ConsoleState>({ mode: "scanning" });
   const [scanValue, setScanValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -61,13 +52,13 @@ function ScanConsole({ scanToken, info }: { scanToken: string; info: ScanConsole
 
     setState({ mode: "loading" });
     try {
-      const data = await resolveScan(scanToken, token);
+      const data = await resolveScan(slug, token);
       setState({ mode: "result", data });
     } catch (err) {
       setState({
         mode: "error",
         message:
-          err instanceof ScanConsoleError && err.code === "CUSTOMER_NOT_FOUND"
+          err instanceof ApiError && err.code === "CUSTOMER_NOT_FOUND"
             ? "Carte inconnue ou n'appartenant pas à cette entreprise."
             : "Impossible de lire cette carte. Réessayez.",
       });
@@ -81,11 +72,10 @@ function ScanConsole({ scanToken, info }: { scanToken: string; info: ScanConsole
   return (
     <div className="min-h-screen px-6 py-8">
       <div className="max-w-lg mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          {info.companyLogoUrl && <img src={info.companyLogoUrl} alt="" className="w-7 h-7 rounded-full object-cover" />}
-          <span className="text-xs font-semibold uppercase tracking-widest text-black/50">
-            {info.companyName} — Scan
-          </span>
+        <div className="flex items-center justify-between mb-6">
+          <Link to={`/company/${slug}`} className="text-xs text-black/40 hover:text-black/70">
+            ← Retour au dashboard
+          </Link>
         </div>
 
         {(state.mode === "scanning" || state.mode === "loading" || state.mode === "error") && (
@@ -116,22 +106,14 @@ function ScanConsole({ scanToken, info }: { scanToken: string; info: ScanConsole
         )}
 
         {state.mode === "result" && (
-          <ResultCard scanToken={scanToken} data={state.data} onDone={resetToScan} />
+          <ResultCard slug={slug} data={state.data} onDone={resetToScan} />
         )}
       </div>
     </div>
   );
 }
 
-function ResultCard({
-  scanToken,
-  data,
-  onDone,
-}: {
-  scanToken: string;
-  data: ScanResolveResult;
-  onDone: () => void;
-}) {
+function ResultCard({ slug, data, onDone }: { slug: string; data: ScanResolveResult; onDone: () => void }) {
   const [current, setCurrent] = useState(data);
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -152,7 +134,7 @@ function ResultCard({
     setSubmitting(true);
     setError(null);
     try {
-      const result = await recordScanPurchase(scanToken, current.customerId, amount.trim());
+      const result = await recordScanPurchase(slug, current.customerId, amount.trim());
       setLastResult(result);
       setCurrent({ ...current, pointsBalance: result.balanceAfter });
       setAmount("");
@@ -167,7 +149,7 @@ function ResultCard({
     setSubmitting(true);
     setError(null);
     try {
-      const result = await redeemScanReward(scanToken, current.customerId, rewardId);
+      const result = await redeemScanReward(slug, current.customerId, rewardId);
       setLastResult(result);
       setCurrent({
         ...current,
@@ -184,6 +166,9 @@ function ResultCard({
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl border border-black/10 bg-white px-5 py-4 flex items-center gap-3">
+        {current.companyLogoUrl && (
+          <img src={current.companyLogoUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+        )}
         <span className="text-xs font-semibold uppercase tracking-widest text-black/60">{current.companyName}</span>
         <span className="ml-auto flex items-center gap-1.5 text-xs text-green-700">
           <span className="w-1.5 h-1.5 rounded-full bg-green-600" /> Carte scannée

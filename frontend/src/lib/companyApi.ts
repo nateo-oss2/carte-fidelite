@@ -53,7 +53,6 @@ export interface CompanyDashboardData {
     accentColor: string;
     logoUrl: string | null;
     joinToken: string;
-    scanToken: string;
     pointsPerCurrencyUnit: string;
   };
   stats: {
@@ -77,10 +76,6 @@ export interface CompanyDashboardData {
 
 export function getCompanyDashboard(slug: string): Promise<CompanyDashboardData> {
   return request(`/company/${slug}/dashboard`);
-}
-
-export function regenerateScanToken(slug: string): Promise<{ scanToken: string }> {
-  return request(`/company/${slug}/dashboard/regenerate-scan-token`, { method: "POST" });
 }
 
 export function qrCodeUrl(joinToken: string): string {
@@ -310,4 +305,54 @@ export function saveEmailConfig(slug: string, input: EmailConfigInput): Promise<
 
 export async function removeEmailConfig(slug: string): Promise<void> {
   await request(`/company/${slug}/email-config`, { method: "DELETE" });
+}
+
+// --- Scan en caisse ---
+
+export interface AvailableReward {
+  id: string;
+  name: string;
+  pointsCost: number;
+}
+
+export interface ScanResolveResult {
+  customerId: string;
+  firstName: string | null;
+  lastName: string | null;
+  loyaltyNumber: string;
+  pointsBalance: number;
+  lifetimePoints: number;
+  createdAt: string;
+  programType: "POINTS" | "DISCOUNT";
+  programName: string;
+  companyName: string;
+  companyLogoUrl: string | null;
+  companyAccentColor: string;
+  availableRewards: AvailableReward[];
+  currentDiscountPercent: string | null;
+}
+
+export function resolveScan(slug: string, token: string): Promise<ScanResolveResult> {
+  return request(`/company/${slug}/scan/resolve`, { method: "POST", body: JSON.stringify({ token }) });
+}
+
+export interface TransactionResult {
+  transactionId: string;
+  status: string;
+  pointsDelta: number;
+  balanceAfter: number;
+}
+
+export function recordScanPurchase(slug: string, customerId: string, amount: string): Promise<TransactionResult> {
+  return request(`/company/${slug}/scan/transactions`, {
+    method: "POST",
+    body: JSON.stringify({ customerId, amount, idempotencyKey: crypto.randomUUID() }),
+  });
+}
+
+export function redeemScanReward(slug: string, customerId: string, rewardId: string): Promise<TransactionResult> {
+  return request(`/company/${slug}/scan/transactions/redeem`, {
+    method: "POST",
+    body: JSON.stringify({ customerId, rewardId, idempotencyKey: crypto.randomUUID() }),
+  });
 }
