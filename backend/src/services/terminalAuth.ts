@@ -22,19 +22,3 @@ export async function authenticateTerminal(rawApiKey: string) {
   }
   return terminal;
 }
-
-export async function listTerminals(companyId: string) {
-  const terminals = await prisma.terminal.findMany({
-    where: { companyId },
-    orderBy: { createdAt: "asc" },
-  });
-  return terminals.map((t) => ({ id: t.id, label: t.label, active: t.active, createdAt: t.createdAt }));
-}
-
-export async function setTerminalActive(companyId: string, terminalId: string, active: boolean) {
-  const terminal = await prisma.terminal.findUnique({ where: { id: terminalId } });
-  if (!terminal || terminal.companyId !== companyId) {
-    return null;
-  }
-  return prisma.terminal.update({ where: { id: terminalId }, data: { active } });
-}

@@ -59,11 +59,6 @@ export function CompanyDashboardPage() {
               Employés
             </Link>
           )}
-          {role === "ADMIN" && (
-            <Link to={`/company/${slug}/terminals`} className="text-xs text-black/50 hover:text-black">
-              Terminaux
-            </Link>
-          )}
           <button onClick={handleLogout} className="text-xs text-black/40 hover:text-black/70">
             Déconnexion
           </button>

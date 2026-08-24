@@ -1,152 +1,32 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { companyMe } from "../lib/companyApi";
 import {
-  recordPurchase,
-  redeemReward,
+  ApiError,
+  companyMe,
+  recordScanPurchase,
+  redeemScanReward,
   resolveScan,
-  ScanApiError,
   type ScanResolveResult,
   type TransactionResult,
-} from "../lib/scanApi";
-
-function terminalKeyStorageKey(slug: string) {
-  return `terminal_key_${slug}`;
-}
+} from "../lib/companyApi";
 
 export function ScanPage() {
   const { slug = "" } = useParams();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [role, setRole] = useState<string | null>(null);
-  const [employeeId, setEmployeeId] = useState<string | null>(null);
-  const [terminalKey, setTerminalKey] = useState<string | null>(() =>
-    typeof window !== "undefined" ? window.localStorage.getItem(terminalKeyStorageKey(slug)) : null,
-  );
 
   useEffect(() => {
     companyMe(slug)
-      .then((me) => {
-        setRole(me.role);
-        setEmployeeId(me.id);
-      })
+      .then(() => {})
       .catch(() => navigate(`/company/${slug}/login`))
       .finally(() => setChecking(false));
   }, [slug, navigate]);
-
-  function handleActivated(key: string) {
-    window.localStorage.setItem(terminalKeyStorageKey(slug), key);
-    setTerminalKey(key);
-  }
-
-  function handleInvalidKey() {
-    window.localStorage.removeItem(terminalKeyStorageKey(slug));
-    setTerminalKey(null);
-  }
 
   if (checking) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-black/40">Chargement…</div>;
   }
 
-  if (!terminalKey) {
-    return <TerminalSetup slug={slug} role={role} onActivated={handleActivated} />;
-  }
-
-  return (
-    <ScanConsole slug={slug} terminalKey={terminalKey} employeeId={employeeId} onInvalidKey={handleInvalidKey} />
-  );
-}
-
-function TerminalSetup({
-  slug,
-  role,
-  onActivated,
-}: {
-  slug: string;
-  role: string | null;
-  onActivated: (key: string) => void;
-}) {
-  const [pastedKey, setPastedKey] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleQuickActivate() {
-    setCreating(true);
-    setError(null);
-    try {
-      const { createTerminal } = await import("../lib/companyApi");
-      const res = await createTerminal(slug, `Poste — ${new Date().toLocaleDateString("fr-FR")}`);
-      onActivated(res.apiKey);
-    } catch {
-      setError("Une erreur est survenue.");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  function handlePasteSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (pastedKey.trim()) onActivated(pastedKey.trim());
-  }
-
-  return (
-    <div className="min-h-screen px-6 py-10 max-w-md mx-auto flex flex-col justify-center">
-      <Link to={`/company/${slug}`} className="text-xs text-black/40 hover:text-black/70 mb-6 self-start">
-        ← Retour au dashboard
-      </Link>
-
-      <h1 className="text-lg font-bold uppercase tracking-widest mb-1" style={{ fontFamily: "var(--font-display)" }}>
-        Configurer ce poste
-      </h1>
-      <p className="text-xs text-black/40 mb-6">
-        Cet appareil n'a pas encore de clé de terminal enregistrée. C'est nécessaire une seule fois par appareil.
-      </p>
-
-      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
-
-      {role === "ADMIN" && (
-        <div className="rounded-2xl border border-black/10 bg-white p-5 mb-5 flex flex-col gap-3">
-          <p className="text-sm text-black/70">Activer directement ce poste comme nouveau terminal.</p>
-          <button
-            type="button"
-            onClick={handleQuickActivate}
-            disabled={creating}
-            className="rounded-xl py-3 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60"
-            style={{ background: "#171512" }}
-          >
-            {creating ? "Activation…" : "Activer ce poste"}
-          </button>
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-black/10 bg-white p-5">
-        <p className="text-sm text-black/70 mb-3">
-          {role === "ADMIN"
-            ? "Ou collez la clé d'un terminal déjà créé (page Terminaux) :"
-            : "Demandez à un administrateur de vous transmettre une clé de terminal (page Terminaux du dashboard), puis collez-la ici :"}
-        </p>
-        <form onSubmit={handlePasteSubmit} className="flex flex-col gap-3">
-          <input
-            value={pastedKey}
-            onChange={(e) => setPastedKey(e.target.value)}
-            placeholder="Clé du terminal"
-            className="rounded-xl border border-black/10 px-4 py-3 text-sm font-mono outline-none focus:border-black/30"
-          />
-          <button
-            type="submit"
-            className="rounded-xl py-3 text-sm font-bold uppercase tracking-wider text-black/70 border border-black/10 hover:border-black/30"
-          >
-            Enregistrer sur cet appareil
-          </button>
-        </form>
-        {role === "ADMIN" && (
-          <Link to={`/company/${slug}/terminals`} className="text-xs text-black/40 hover:text-black/70 mt-3 inline-block">
-            Gérer les terminaux →
-          </Link>
-        )}
-      </div>
-    </div>
-  );
+  return <ScanConsole slug={slug} />;
 }
 
 type ConsoleState =
@@ -155,17 +35,7 @@ type ConsoleState =
   | { mode: "error"; message: string }
   | { mode: "result"; data: ScanResolveResult };
 
-function ScanConsole({
-  slug,
-  terminalKey,
-  employeeId,
-  onInvalidKey,
-}: {
-  slug: string;
-  terminalKey: string;
-  employeeId: string | null;
-  onInvalidKey: () => void;
-}) {
+function ScanConsole({ slug }: { slug: string }) {
   const [state, setState] = useState<ConsoleState>({ mode: "scanning" });
   const [scanValue, setScanValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -182,17 +52,13 @@ function ScanConsole({
 
     setState({ mode: "loading" });
     try {
-      const data = await resolveScan(terminalKey, token);
+      const data = await resolveScan(slug, token);
       setState({ mode: "result", data });
     } catch (err) {
-      if (err instanceof ScanApiError && (err.code === "TERMINAL_KEY_MISSING" || err.code === "TERMINAL_KEY_INVALID")) {
-        onInvalidKey();
-        return;
-      }
       setState({
         mode: "error",
         message:
-          err instanceof ScanApiError && err.code === "CUSTOMER_NOT_FOUND"
+          err instanceof ApiError && err.code === "CUSTOMER_NOT_FOUND"
             ? "Carte inconnue ou n'appartenant pas à cette entreprise."
             : "Impossible de lire cette carte. Réessayez.",
       });
@@ -210,7 +76,6 @@ function ScanConsole({
           <Link to={`/company/${slug}`} className="text-xs text-black/40 hover:text-black/70">
             ← Retour au dashboard
           </Link>
-          <span className="text-xs text-black/30">Poste actif</span>
         </div>
 
         {(state.mode === "scanning" || state.mode === "loading" || state.mode === "error") && (
@@ -241,29 +106,14 @@ function ScanConsole({
         )}
 
         {state.mode === "result" && (
-          <ResultCard
-            data={state.data}
-            terminalKey={terminalKey}
-            employeeId={employeeId}
-            onDone={resetToScan}
-          />
+          <ResultCard slug={slug} data={state.data} onDone={resetToScan} />
         )}
       </div>
     </div>
   );
 }
 
-function ResultCard({
-  data,
-  terminalKey,
-  employeeId,
-  onDone,
-}: {
-  data: ScanResolveResult;
-  terminalKey: string;
-  employeeId: string | null;
-  onDone: () => void;
-}) {
+function ResultCard({ slug, data, onDone }: { slug: string; data: ScanResolveResult; onDone: () => void }) {
   const [current, setCurrent] = useState(data);
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -284,11 +134,7 @@ function ResultCard({
     setSubmitting(true);
     setError(null);
     try {
-      const result = await recordPurchase(terminalKey, {
-        customerId: current.customerId,
-        amount: amount.trim(),
-        employeeId: employeeId ?? undefined,
-      });
+      const result = await recordScanPurchase(slug, current.customerId, amount.trim());
       setLastResult(result);
       setCurrent({ ...current, pointsBalance: result.balanceAfter });
       setAmount("");
@@ -303,11 +149,7 @@ function ResultCard({
     setSubmitting(true);
     setError(null);
     try {
-      const result = await redeemReward(terminalKey, {
-        customerId: current.customerId,
-        rewardId,
-        employeeId: employeeId ?? undefined,
-      });
+      const result = await redeemScanReward(slug, current.customerId, rewardId);
       setLastResult(result);
       setCurrent({
         ...current,
