@@ -86,6 +86,7 @@ export function CustomerDetailPage() {
             Client·e depuis le {memberSince}
             {!customer.hasActiveCard && " · carte révoquée"}
           </p>
+          {customer.email && <p className="text-xs text-black/40 mt-0.5">{customer.email}</p>}
         </div>
       </div>
 

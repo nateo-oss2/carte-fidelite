@@ -78,6 +78,7 @@ router.post(
       customerId: customer.id,
       firstName: customer.firstName,
       lastName: customer.lastName,
+      email: customer.email,
       loyaltyNumber: customer.loyaltyNumber,
       pointsBalance: customer.pointsBalance,
       lifetimePoints: customer.lifetimePoints,

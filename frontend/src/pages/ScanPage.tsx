@@ -188,6 +188,7 @@ function ResultCard({ slug, data, onDone }: { slug: string; data: ScanResolveRes
               {displayName}
             </p>
             <p className="text-xs text-black/40 mt-0.5">Client·e depuis le {memberSince}</p>
+            {current.email && <p className="text-xs text-black/40 mt-0.5">{current.email}</p>}
           </div>
         </div>
 

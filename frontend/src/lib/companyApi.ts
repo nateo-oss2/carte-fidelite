@@ -319,6 +319,7 @@ export interface ScanResolveResult {
   customerId: string;
   firstName: string | null;
   lastName: string | null;
+  email: string | null;
   loyaltyNumber: string;
   pointsBalance: number;
   lifetimePoints: number;
