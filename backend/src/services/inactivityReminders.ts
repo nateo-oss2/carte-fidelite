@@ -1,5 +1,5 @@
 import { prisma } from "../prisma";
-import { sendEmail } from "./email/sendEmail";
+import { sendEmail, type SmtpCredentials } from "./email/sendEmail";
 import { getDecryptedEmailConfig } from "./companyEmailConfig";
 
 /**
@@ -49,10 +49,11 @@ export async function runInactivityRemindersForCompany(companyId: string): Promi
     return null;
   }
 
-  const emailConfig = await getDecryptedEmailConfig(companyId);
-  if (!emailConfig) {
+  const rawEmailConfig = await getDecryptedEmailConfig(companyId);
+  if (!rawEmailConfig) {
     return null;
   }
+  const emailConfig: SmtpCredentials = { ...rawEmailConfig, fromName: company.name };
 
   const due = await findCustomersDueForReminder(companyId, company.inactivityThresholdDays);
   let sent = 0;

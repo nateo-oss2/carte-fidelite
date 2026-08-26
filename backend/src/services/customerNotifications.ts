@@ -88,10 +88,15 @@ export async function sendNotifications(
     return { configured: false };
   }
 
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+  const emailConfigWithFromName: SmtpCredentials = { ...emailConfig, fromName: company?.name };
+
   const results: SendResult[] = [];
   for (const customerId of customerIds) {
     // Séquentiel, volontairement : évite de saturer le fournisseur SMTP sur un envoi groupé.
-    results.push(await sendOne({ companyId, employeeId, customerId, subject, message, emailConfig }));
+    results.push(
+      await sendOne({ companyId, employeeId, customerId, subject, message, emailConfig: emailConfigWithFromName }),
+    );
   }
   return { configured: true, results };
 }

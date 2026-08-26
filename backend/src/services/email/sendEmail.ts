@@ -5,6 +5,8 @@ export interface SmtpCredentials {
   smtpUser: string;
   smtpPassword: string;
   fromAddress: string;
+  /** Nom affiché comme expéditeur (ex: "Café Lucine") — sans ça, seule l'adresse s'affiche. */
+  fromName?: string;
 }
 
 interface SendEmailInput {
@@ -32,7 +34,7 @@ export async function sendEmail(credentials: SmtpCredentials, input: SendEmailIn
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: credentials.fromAddress,
+      from: credentials.fromName ? `${credentials.fromName} <${credentials.fromAddress}>` : credentials.fromAddress,
       to: input.to,
       subject: input.subject,
       text: input.text,
