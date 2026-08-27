@@ -41,12 +41,24 @@ enum ProgramType {
   DISCOUNT
 }
 
+// Position du logo sur la carte Wallet — personnalisable par entreprise (toujours sur fond
+// blanc, jamais de données de fidélité affichées, conformément au design validé en Phase 1).
+enum CardLogoPosition {
+  CENTER
+  TOP
+  SIDE
+}
+
 model Company {
   id                    String        @id @default(uuid())
   name                  String
   slug                  String        @unique
   logoUrl               String?
   accentColor           String        @default("#B08D57")
+  // 2e couleur optionnelle — quand renseignée, la carte affiche un dégradé/double trait
+  // entre accentColor et secondaryColor plutôt qu'une seule couleur unie.
+  secondaryColor        String?
+  logoPosition          CardLogoPosition @default(CENTER)
   programName           String        @default("Programme fidélité")
   // Points attribués par unité monétaire dépensée (règle par défaut : 1€ = 1 point)
   pointsPerCurrencyUnit Decimal       @default(1) @db.Decimal(6, 2)
@@ -64,9 +76,24 @@ model Company {
   // Relance automatique par inactivité : envoyée à tout client sans achat depuis N jours,
   // répétée tous les N jours tant qu'il reste inactif (voir services/inactivityReminders.ts).
   inactivityReminderEnabled Boolean @default(false)
-  inactivityThresholdDays   Int     @default(30)
+  inactivityThresholdDays   Int     @default(60)
   inactivityReminderSubject String  @default("On ne vous a pas vu depuis un moment !")
   inactivityReminderMessage String  @default("Bonjour,\n\nÇa fait un moment que nous ne vous avons pas vu. Découvrez nos nouveautés et offres du moment !\n\nÀ bientôt,")
+
+  // Bonus offert au parrain ET au filleul quand un nouveau client s'inscrit via un code de
+  // parrainage (le numéro de fidélité d'un client existant de la même entreprise).
+  referralBonusPoints Int @default(10)
+
+  // Points doublés sur les achats effectués dans ce créneau horaire (heures creuses).
+  offPeakBonusEnabled Boolean @default(false)
+  offPeakStartHour    Int     @default(14)
+  offPeakEndHour      Int     @default(19)
+
+  // Expiration des points inutilisés — protège contre un solde qui grossit indéfiniment sans
+  // jamais être dépensé. Un client qui n'a rien acheté depuis N jours voit son solde remis à
+  // zéro (jamais lifetimePoints, qui reste l'historique permanent).
+  pointsExpiryEnabled Boolean @default(true)
+  pointsExpiryDays    Int     @default(365)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -100,13 +127,20 @@ model Customer {
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
-  firstName String?
-  lastName  String?
-  email     String?
-  phone     String?
+  firstName   String?
+  lastName    String?
+  email       String?
+  phone       String?
+  dateOfBirth DateTime?
 
   // Identifiant lisible imprimé/affiché (non secret), distinct du token du code-barres
   loyaltyNumber String @unique
+
+  // Parrainage : le client dont le loyaltyNumber a été renseigné à l'inscription de CE client.
+  // Les deux reçoivent Company.referralBonusPoints au moment de l'inscription du filleul.
+  referredById String?
+  referredBy   Customer?  @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals    Customer[] @relation("Referrals")
 
   // Solde dépensable, contrôlé exclusivement côté serveur — jamais modifié directement,
   // uniquement dérivé de la somme des transactions (balanceAfter de la dernière transaction).
@@ -228,6 +262,10 @@ enum TransactionType {
   REFUND
   ADJUSTMENT
   REDEMPTION
+  // Points offerts automatiquement (premier point à l'inscription, bonus de parrainage)
+  BONUS
+  // Remise à zéro du solde pour cause d'inactivité prolongée (Company.pointsExpiryDays)
+  EXPIRY
 }
 
 enum TransactionStatus {

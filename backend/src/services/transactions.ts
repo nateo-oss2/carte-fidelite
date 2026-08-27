@@ -3,6 +3,7 @@ import { prisma } from "../prisma";
 import { HttpError } from "../lib/httpError";
 import { isUniqueConstraintViolation } from "../lib/prismaErrors";
 import { checkAndAlertRapidTransactions, checkAndAlertUnusualAmount } from "./securityAlerts";
+import { isOffPeakNow } from "../lib/offPeak";
 
 interface RecordPurchaseInput {
   companyId: string;
@@ -88,8 +89,11 @@ export async function recordPurchase(input: RecordPurchaseInput): Promise<Transa
   }
 
   // Règle de fidélité : 1€ dépensé = 1 point par défaut (company.pointsPerCurrencyUnit).
-  // Arrondi à l'entier inférieur — jamais de points fractionnaires.
-  const pointsDelta = amount.mul(company.pointsPerCurrencyUnit).floor().toNumber();
+  // Arrondi à l'entier inférieur — jamais de points fractionnaires. Doublé si l'achat tombe
+  // dans le créneau "heures creuses" configuré par l'entreprise (Company.offPeakBonusEnabled).
+  const basePoints = amount.mul(company.pointsPerCurrencyUnit).floor().toNumber();
+  const offPeak = isOffPeakNow(company);
+  const pointsDelta = offPeak ? basePoints * 2 : basePoints;
   const employeeId = await resolveValidEmployeeId(input.employeeId, input.companyId);
 
   try {
@@ -125,7 +129,7 @@ export async function recordPurchase(input: RecordPurchaseInput): Promise<Transa
           action: "TRANSACTION_CREATED",
           targetType: "Transaction",
           targetId: transaction.id,
-          metadata: { amount: input.amount, pointsDelta, customerId: customer.id, terminalId: input.terminalId ?? null },
+          metadata: { amount: input.amount, pointsDelta, customerId: customer.id, terminalId: input.terminalId ?? null, offPeak },
         },
       });
 

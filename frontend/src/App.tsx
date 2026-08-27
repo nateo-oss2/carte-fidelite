@@ -16,12 +16,14 @@ import { CompanyCustomersPage } from "./pages/CompanyCustomersPage";
 import { CompanyProgramPage } from "./pages/CompanyProgramPage";
 import { CustomerDetailPage } from "./pages/CustomerDetailPage";
 import { ScanPage } from "./pages/ScanPage";
+import { CustomerCardPage } from "./pages/CustomerCardPage";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/join/:companyToken" element={<JoinPage />} />
       <Route path="/join" element={<CenteredNotice />} />
+      <Route path="/ma-carte/:token" element={<CustomerCardPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin/forgot-password" element={<AdminForgotPasswordPage />} />
       <Route path="/admin/reset-password" element={<AdminResetPasswordPage />} />

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   ApiError,
   applePassDownloadUrl,
@@ -28,6 +28,8 @@ export function JoinPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [referralCode, setReferralCode] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +60,8 @@ export function JoinPage() {
         lastName: lastName.trim() || undefined,
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
+        dateOfBirth: dateOfBirth || undefined,
+        referralCode: referralCode.trim() || undefined,
       });
       setResult(response);
     } catch (err) {
@@ -162,6 +166,23 @@ export function JoinPage() {
               autoComplete="tel"
             />
           </Field>
+          <Field label="Date de naissance (optionnel)">
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+              className={inputClass}
+              autoComplete="bday"
+            />
+          </Field>
+          <Field label="Code de parrainage (optionnel)">
+            <input
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value)}
+              className={inputClass}
+              placeholder="Numéro de fidélité d'un ami"
+            />
+          </Field>
 
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
@@ -230,6 +251,19 @@ function ConfirmationView({
         <p className="text-xs text-black/40 mt-2">
           Numéro de fidélité : {result.loyaltyNumber}
         </p>
+
+        {result.referralApplied && (
+          <p className="text-xs rounded-full px-3 py-1.5" style={{ background: `${company.accentColor}1a`, color: company.accentColor }}>
+            Points de parrainage crédités 🎉
+          </p>
+        )}
+
+        <Link
+          to={`/ma-carte/${result.walletToken}`}
+          className="text-xs font-semibold uppercase tracking-wide text-black/50 hover:text-black underline underline-offset-2 mt-2"
+        >
+          Voir ma fiche client
+        </Link>
       </div>
     </div>
   );

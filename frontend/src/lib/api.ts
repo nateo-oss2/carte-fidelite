@@ -42,6 +42,8 @@ export interface JoinPayload {
   lastName?: string;
   email?: string;
   phone?: string;
+  dateOfBirth?: string;
+  referralCode?: string;
 }
 
 export interface JoinResponse {
@@ -49,7 +51,24 @@ export interface JoinResponse {
   loyaltyNumber: string;
   pointsBalance: number;
   alreadyEnrolled: boolean;
+  referralApplied: boolean;
   walletToken: string;
+}
+
+export interface CustomerCardInfo {
+  firstName: string | null;
+  lastName: string | null;
+  loyaltyNumber: string;
+  pointsBalance: number;
+  lifetimePoints: number;
+  companyName: string;
+  companyLogoUrl: string | null;
+  companyAccentColor: string;
+  programType: "POINTS" | "DISCOUNT";
+}
+
+export function fetchCustomerCard(token: string): Promise<CustomerCardInfo> {
+  return request(`/join/customer/${encodeURIComponent(token)}`);
 }
 
 export function joinCompanyProgram(companyToken: string, payload: JoinPayload): Promise<JoinResponse> {

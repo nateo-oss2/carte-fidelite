@@ -9,6 +9,9 @@ export interface JoinInput {
   lastName?: string;
   email?: string;
   phone?: string;
+  dateOfBirth?: string;
+  /** Numéro de fidélité du parrain — client existant de la même entreprise, optionnel. */
+  referralCode?: string;
 }
 
 export interface JoinResult {
@@ -24,6 +27,8 @@ export interface JoinResult {
   rawToken: string;
   /** true si le client avait déjà une carte pour cette entreprise (son token a été régénéré). */
   alreadyEnrolled: boolean;
+  /** true si un code de parrainage valide a été appliqué (bonus crédité aux deux). */
+  referralApplied: boolean;
 }
 
 const MAX_LOYALTY_NUMBER_ATTEMPTS = 5;
@@ -66,21 +71,96 @@ export async function joinCompanyProgram(
       },
       rawToken,
       alreadyEnrolled: true,
+      referralApplied: false,
     };
   }
 
+  // Le parrain doit être un client déjà actif de CETTE entreprise — jamais d'une autre, jamais
+  // un compte bloqué. Une référence invalide/inconnue est simplement ignorée (pas d'erreur
+  // bloquante pour l'inscription : le client obtient sa carte dans tous les cas).
+  const referrer = input.referralCode
+    ? await prisma.customer.findUnique({ where: { loyaltyNumber: input.referralCode.trim() } })
+    : null;
+  const validReferrer = referrer && referrer.companyId === companyId && referrer.status === "ACTIVE" ? referrer : null;
+
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+  const referralBonus = company?.referralBonusPoints ?? 0;
+
   for (let attempt = 0; attempt < MAX_LOYALTY_NUMBER_ATTEMPTS; attempt++) {
     try {
-      const customer = await prisma.customer.create({
-        data: {
-          companyId,
-          firstName: input.firstName ?? null,
-          lastName: input.lastName ?? null,
-          email: input.email ?? null,
-          phone: input.phone ?? null,
-          loyaltyNumber: generateLoyaltyNumber(),
-          pointsBalance: 0,
-        },
+      const customer = await prisma.$transaction(async (tx) => {
+        const created = await tx.customer.create({
+          data: {
+            companyId,
+            firstName: input.firstName ?? null,
+            lastName: input.lastName ?? null,
+            email: input.email ?? null,
+            phone: input.phone ?? null,
+            dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
+            loyaltyNumber: generateLoyaltyNumber(),
+            pointsBalance: 0,
+            referredById: validReferrer?.id ?? null,
+          },
+        });
+
+        // Premier point offert à l'inscription — toujours, indépendamment du parrainage.
+        const withSignupBonus = await tx.customer.update({
+          where: { id: created.id },
+          data: { pointsBalance: { increment: 1 }, lifetimePoints: { increment: 1 } },
+        });
+        await tx.transaction.create({
+          data: {
+            companyId,
+            customerId: created.id,
+            type: "BONUS",
+            status: "COMPLETED",
+            amount: new Prisma.Decimal(0),
+            pointsDelta: 1,
+            balanceAfter: withSignupBonus.pointsBalance,
+            idempotencyKey: `signup-bonus-${created.id}`,
+          },
+        });
+
+        let finalBalance = withSignupBonus.pointsBalance;
+
+        if (validReferrer && referralBonus > 0) {
+          const withReferralBonus = await tx.customer.update({
+            where: { id: created.id },
+            data: { pointsBalance: { increment: referralBonus }, lifetimePoints: { increment: referralBonus } },
+          });
+          finalBalance = withReferralBonus.pointsBalance;
+          await tx.transaction.create({
+            data: {
+              companyId,
+              customerId: created.id,
+              type: "BONUS",
+              status: "COMPLETED",
+              amount: new Prisma.Decimal(0),
+              pointsDelta: referralBonus,
+              balanceAfter: finalBalance,
+              idempotencyKey: `referral-filleul-${created.id}`,
+            },
+          });
+
+          const updatedReferrer = await tx.customer.update({
+            where: { id: validReferrer.id },
+            data: { pointsBalance: { increment: referralBonus }, lifetimePoints: { increment: referralBonus } },
+          });
+          await tx.transaction.create({
+            data: {
+              companyId,
+              customerId: validReferrer.id,
+              type: "BONUS",
+              status: "COMPLETED",
+              amount: new Prisma.Decimal(0),
+              pointsDelta: referralBonus,
+              balanceAfter: updatedReferrer.pointsBalance,
+              idempotencyKey: `referral-parrain-${created.id}`,
+            },
+          });
+        }
+
+        return { ...created, pointsBalance: finalBalance };
       });
 
       const rawToken = await issueInitialToken(customer.id);
@@ -92,6 +172,7 @@ export async function joinCompanyProgram(
         targetType: "Customer",
         targetId: customer.id,
         ipAddress,
+        metadata: validReferrer ? { referredById: validReferrer.id } : undefined,
       });
 
       return {
@@ -105,6 +186,7 @@ export async function joinCompanyProgram(
         },
         rawToken,
         alreadyEnrolled: false,
+        referralApplied: Boolean(validReferrer && referralBonus > 0),
       };
     } catch (error) {
       const isUniqueLoyaltyNumberClash =
@@ -170,6 +252,33 @@ export async function listCustomers(companyId: string, search?: string) {
     hasActiveCard: c.tokens.length > 0,
     createdAt: c.createdAt,
   }));
+}
+
+/**
+ * Clients dont c'est l'anniversaire aujourd'hui (jour + mois, année ignorée) — pour le widget
+ * du dashboard entreprise qui rappelle à l'employé d'envoyer le message cadeau du jour.
+ */
+export async function findTodaysBirthdays(companyId: string) {
+  // "Aujourd'hui" au sens calendaire France (pas le fuseau du serveur, souvent UTC en
+  // production) — sinon la comparaison dérive de plusieurs heures selon l'heure d'été/hiver.
+  const parisParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const todayMonth = Number(parisParts.find((p) => p.type === "month")!.value) - 1;
+  const todayDate = Number(parisParts.find((p) => p.type === "day")!.value);
+
+  const customers = await prisma.customer.findMany({
+    where: { companyId, status: "ACTIVE", dateOfBirth: { not: null }, email: { not: null } },
+    select: { id: true, firstName: true, lastName: true, loyaltyNumber: true, email: true, dateOfBirth: true },
+  });
+
+  // dateOfBirth est une date sans heure (ex: "1995-08-27"), stockée par Prisma à minuit UTC —
+  // getUTCMonth/getUTCDate redonnent exactement le jour saisi, sans dérive de fuseau.
+  return customers
+    .filter((c) => c.dateOfBirth!.getUTCMonth() === todayMonth && c.dateOfBirth!.getUTCDate() === todayDate)
+    .map(({ dateOfBirth: _dateOfBirth, ...rest }) => rest);
 }
 
 /** Fiche détaillée d'un client — identité, solde, statut de carte, historique récent. */

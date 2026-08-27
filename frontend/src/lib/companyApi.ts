@@ -140,6 +140,18 @@ export function revokeCustomerCard(slug: string, customerId: string): Promise<{ 
   return request(`/company/${slug}/customers/${customerId}/revoke-token`, { method: "POST" });
 }
 
+export interface BirthdayCustomer {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  loyaltyNumber: string;
+  email: string | null;
+}
+
+export function getTodaysBirthdays(slug: string): Promise<{ customers: BirthdayCustomer[] }> {
+  return request(`/company/${slug}/customers/birthdays-today`);
+}
+
 export interface CustomerTransaction {
   id: string;
   type: string;
@@ -207,11 +219,48 @@ export interface InactivityReminderConfig {
   message: string;
 }
 
+export interface OffPeakBonusConfig {
+  enabled: boolean;
+  startHour: number;
+  endHour: number;
+}
+
+export interface PointsExpiryConfig {
+  enabled: boolean;
+  days: number;
+}
+
 export interface ProgramData {
   programType: "POINTS" | "DISCOUNT";
   rewards: Reward[];
   discountTiers: DiscountTier[];
   inactivityReminder: InactivityReminderConfig;
+  referralBonusPoints: number;
+  offPeakBonus: OffPeakBonusConfig;
+  pointsExpiry: PointsExpiryConfig;
+}
+
+export function updateReferralBonus(slug: string, bonusPoints: number): Promise<{ bonusPoints: number }> {
+  return request(`/company/${slug}/program/referral`, { method: "PATCH", body: JSON.stringify({ bonusPoints }) });
+}
+
+export function updateOffPeakBonus(slug: string, input: OffPeakBonusConfig): Promise<OffPeakBonusConfig> {
+  return request(`/company/${slug}/program/off-peak`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function updatePointsExpiry(slug: string, input: PointsExpiryConfig): Promise<PointsExpiryConfig> {
+  return request(`/company/${slug}/program/points-expiry`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export interface RunExpiryResult {
+  companyId: string;
+  companyName: string;
+  expiredCount: number;
+  totalPointsExpired: number;
+}
+
+export function runPointsExpiryNow(slug: string): Promise<RunExpiryResult> {
+  return request(`/company/${slug}/program/points-expiry/run-now`, { method: "POST" });
 }
 
 export function updateInactivityReminder(
@@ -331,6 +380,7 @@ export interface ScanResolveResult {
   companyAccentColor: string;
   availableRewards: AvailableReward[];
   currentDiscountPercent: string | null;
+  offPeakActive: boolean;
 }
 
 export function resolveScan(slug: string, token: string): Promise<ScanResolveResult> {

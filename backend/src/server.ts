@@ -7,6 +7,7 @@ import "dotenv/config";
 import { app } from "./app";
 import { startInactivityReminderScheduler } from "./scheduler/inactivityReminderJob";
 import { startBackupScheduler } from "./scheduler/backupJob";
+import { startPointsExpiryScheduler } from "./scheduler/pointsExpiryJob";
 
 const port = Number(process.env.PORT) || 3000;
 app.listen(port, () => {
@@ -15,3 +16,4 @@ app.listen(port, () => {
 
 startInactivityReminderScheduler();
 startBackupScheduler();
+startPointsExpiryScheduler();

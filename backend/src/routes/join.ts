@@ -6,6 +6,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { HttpError } from "../lib/httpError";
 import { joinCompanyProgram } from "../services/customers";
 import { generateQrCodePng } from "../services/qrCode";
+import { resolveCustomerByToken } from "../services/tokens";
 
 const router = Router();
 
@@ -78,6 +79,12 @@ const joinBodySchema = z.object({
     .trim()
     .regex(/^[0-9+()\-.\s]{6,20}$/)
     .optional(),
+  dateOfBirth: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  referralCode: z.string().trim().min(1).max(40).optional(),
 });
 
 /** POST /join/:companyToken — inscription d'un client au programme (formulaire après scan du QR). */
@@ -102,9 +109,42 @@ router.post(
       loyaltyNumber: result.customer.loyaltyNumber,
       pointsBalance: result.customer.pointsBalance,
       alreadyEnrolled: result.alreadyEnrolled,
+      referralApplied: result.referralApplied,
       // Valeur à encoder immédiatement dans le pass Wallet généré côté client de cet appel ;
       // elle n'est pas récupérable ensuite (seul son hash est conservé en base).
       walletToken: result.rawToken,
+    });
+  }),
+);
+
+/**
+ * GET /join/customer/:token — fiche client en lecture seule, accessible au client lui-même
+ * (bouton "voir ma fiche" affiché juste après l'inscription). Le token est le même identifiant
+ * que celui encodé dans le code-barres du pass Wallet — déjà traité comme un secret porteur.
+ */
+router.get(
+  "/customer/:token",
+  asyncHandler(async (req, res) => {
+    const customer = await resolveCustomerByToken(req.params.token);
+    if (!customer) {
+      throw new HttpError(404, "CUSTOMER_NOT_FOUND");
+    }
+
+    const company = await prisma.company.findUnique({ where: { id: customer.companyId } });
+    if (!company) {
+      throw new HttpError(404, "CUSTOMER_NOT_FOUND");
+    }
+
+    res.json({
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      loyaltyNumber: customer.loyaltyNumber,
+      pointsBalance: customer.pointsBalance,
+      lifetimePoints: customer.lifetimePoints,
+      companyName: company.name,
+      companyLogoUrl: company.logoUrl,
+      companyAccentColor: company.accentColor,
+      programType: company.programType,
     });
   }),
 );

@@ -8,6 +8,7 @@ import { createReward, deleteReward, listRewards, updateReward } from "../servic
 import { createDiscountTier, deleteDiscountTier, listDiscountTiers, updateDiscountTier } from "../services/discountTiers";
 import { recordAuditLog } from "../services/auditLog";
 import { runInactivityRemindersForCompany } from "../services/inactivityReminders";
+import { runPointsExpiryForCompany } from "../services/pointsExpiry";
 
 const router = Router({ mergeParams: true });
 
@@ -31,6 +32,16 @@ router.get(
         thresholdDays: company!.inactivityThresholdDays,
         subject: company!.inactivityReminderSubject,
         message: company!.inactivityReminderMessage,
+      },
+      referralBonusPoints: company!.referralBonusPoints,
+      offPeakBonus: {
+        enabled: company!.offPeakBonusEnabled,
+        startHour: company!.offPeakStartHour,
+        endHour: company!.offPeakEndHour,
+      },
+      pointsExpiry: {
+        enabled: company!.pointsExpiryEnabled,
+        days: company!.pointsExpiryDays,
       },
     });
   }),
@@ -219,6 +230,121 @@ router.post(
         "REMINDER_NOT_READY",
         "Activez la relance automatique et configurez un fournisseur e-mail avant de tester.",
       );
+    }
+    res.json(result);
+  }),
+);
+
+// --- Parrainage ---
+
+const referralSchema = z.object({ bonusPoints: z.number().int().min(0).max(1000) });
+
+/** PATCH /company/:slug/program/referral — montant de points offert au parrain ET au filleul. */
+router.patch(
+  "/referral",
+  requireEmployeeRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    const parsed = referralSchema.safeParse(req.body);
+    if (!parsed.success) throw new HttpError(400, "INVALID_INPUT");
+
+    const company = await prisma.company.update({
+      where: { id: req.employee!.companyId },
+      data: { referralBonusPoints: parsed.data.bonusPoints },
+    });
+
+    await recordAuditLog({
+      companyId: req.employee!.companyId,
+      actorType: "EMPLOYEE",
+      employeeId: req.employee!.id,
+      action: "REFERRAL_BONUS_UPDATED",
+      metadata: parsed.data,
+      ipAddress: req.ip ?? null,
+    });
+
+    res.json({ bonusPoints: company.referralBonusPoints });
+  }),
+);
+
+// --- Heures creuses (points doublés) ---
+
+const offPeakSchema = z
+  .object({
+    enabled: z.boolean(),
+    startHour: z.number().int().min(0).max(23),
+    endHour: z.number().int().min(0).max(23),
+  })
+  .refine((v) => v.startHour !== v.endHour, { message: "startHour et endHour doivent différer" });
+
+router.patch(
+  "/off-peak",
+  requireEmployeeRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    const parsed = offPeakSchema.safeParse(req.body);
+    if (!parsed.success) throw new HttpError(400, "INVALID_INPUT");
+
+    const company = await prisma.company.update({
+      where: { id: req.employee!.companyId },
+      data: {
+        offPeakBonusEnabled: parsed.data.enabled,
+        offPeakStartHour: parsed.data.startHour,
+        offPeakEndHour: parsed.data.endHour,
+      },
+    });
+
+    await recordAuditLog({
+      companyId: req.employee!.companyId,
+      actorType: "EMPLOYEE",
+      employeeId: req.employee!.id,
+      action: "OFF_PEAK_BONUS_UPDATED",
+      metadata: parsed.data,
+      ipAddress: req.ip ?? null,
+    });
+
+    res.json({
+      enabled: company.offPeakBonusEnabled,
+      startHour: company.offPeakStartHour,
+      endHour: company.offPeakEndHour,
+    });
+  }),
+);
+
+// --- Expiration des points ---
+
+const pointsExpirySchema = z.object({ enabled: z.boolean(), days: z.number().int().min(30).max(1825) });
+
+router.patch(
+  "/points-expiry",
+  requireEmployeeRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    const parsed = pointsExpirySchema.safeParse(req.body);
+    if (!parsed.success) throw new HttpError(400, "INVALID_INPUT");
+
+    const company = await prisma.company.update({
+      where: { id: req.employee!.companyId },
+      data: { pointsExpiryEnabled: parsed.data.enabled, pointsExpiryDays: parsed.data.days },
+    });
+
+    await recordAuditLog({
+      companyId: req.employee!.companyId,
+      actorType: "EMPLOYEE",
+      employeeId: req.employee!.id,
+      action: "POINTS_EXPIRY_UPDATED",
+      metadata: parsed.data,
+      ipAddress: req.ip ?? null,
+    });
+
+    res.json({ enabled: company.pointsExpiryEnabled, days: company.pointsExpiryDays });
+  }),
+);
+
+/** POST /company/:slug/program/points-expiry/run-now — déclenchement manuel, pour tester. */
+router.post(
+  "/points-expiry/run-now",
+  requireEmployeeRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    const result = await runPointsExpiryForCompany(req.employee!.companyId);
+    if (!result) {
+      throw new HttpError(409, "EXPIRY_NOT_READY", "Activez l'expiration des points avant de tester.");
     }
     res.json(result);
   }),

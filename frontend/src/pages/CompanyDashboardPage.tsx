@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { companyLogout, companyMe, getCompanyDashboard, qrCodeUrl, type CompanyDashboardData } from "../lib/companyApi";
+import {
+  companyLogout,
+  companyMe,
+  getCompanyDashboard,
+  getTodaysBirthdays,
+  qrCodeUrl,
+  sendCustomerNotifications,
+  type BirthdayCustomer,
+  type CompanyDashboardData,
+} from "../lib/companyApi";
 
 export function CompanyDashboardPage() {
   const { slug = "" } = useParams();
@@ -74,6 +83,8 @@ export function CompanyDashboardPage() {
         <StatTile label="Montant total encaissé" value={`${stats.totalAmount} €`} />
       </div>
 
+      <BirthdayWidget slug={slug} companyName={company.name} />
+
       <div className="rounded-2xl border border-black/10 bg-white p-5 flex items-center gap-5 mb-6">
         <img src={qrCodeUrl(company.joinToken)} alt="QR code" className="w-24 h-24 flex-shrink-0" />
         <div>
@@ -110,6 +121,62 @@ export function CompanyDashboardPage() {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+function BirthdayWidget({ slug, companyName }: { slug: string; companyName: string }) {
+  const [customers, setCustomers] = useState<BirthdayCustomer[] | null>(null);
+  const [sentIds, setSentIds] = useState<string[]>([]);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getTodaysBirthdays(slug).then((res) => setCustomers(res.customers));
+  }, [slug]);
+
+  async function handleSend(customer: BirthdayCustomer) {
+    setSendingId(customer.id);
+    try {
+      await sendCustomerNotifications(slug, {
+        customerIds: [customer.id],
+        subject: `Joyeux anniversaire de la part de ${companyName} 🎉`,
+        message: `Bonjour ${customer.firstName ?? ""},\n\nToute l'équipe de ${companyName} vous souhaite un très joyeux anniversaire !\n\nPour l'occasion, votre prochain achat en boutique de moins de 15€ vous est offert. Présentez simplement votre carte de fidélité en caisse.\n\nÀ très bientôt,\nL'équipe ${companyName}`,
+      });
+      setSentIds((prev) => [...prev, customer.id]);
+    } finally {
+      setSendingId(null);
+    }
+  }
+
+  if (!customers || customers.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-black/10 bg-white p-5 mb-6">
+      <p className="text-sm font-semibold mb-1">🎂 Anniversaires du jour</p>
+      <p className="text-xs text-black/50 mb-4">
+        Envoyez un message avec un cadeau (moins de 15€ offert en boutique).
+      </p>
+      <ul className="flex flex-col gap-2">
+        {customers.map((customer) => {
+          const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ") || customer.loyaltyNumber;
+          const sent = sentIds.includes(customer.id);
+          return (
+            <li key={customer.id} className="flex items-center justify-between gap-3">
+              <span className="text-sm">{name}</span>
+              <button
+                type="button"
+                onClick={() => handleSend(customer)}
+                disabled={sent || sendingId === customer.id}
+                className={`text-xs font-semibold uppercase tracking-wide px-3 py-1.5 rounded-lg ${
+                  sent ? "text-green-700" : "text-black/70 border border-black/10 hover:border-black/30"
+                } disabled:opacity-60`}
+              >
+                {sent ? "Envoyé ✓" : sendingId === customer.id ? "Envoi…" : "Envoyer le message"}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

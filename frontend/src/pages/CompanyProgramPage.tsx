@@ -10,14 +10,20 @@ import {
   getProgram,
   removeEmailConfig,
   runInactivityReminderNow,
+  runPointsExpiryNow,
   saveEmailConfig,
   updateInactivityReminder,
+  updateOffPeakBonus,
+  updatePointsExpiry,
   updateProgramType,
+  updateReferralBonus,
   updateReward,
   ApiError,
   type DiscountTier,
   type EmailConfigStatus,
   type InactivityReminderConfig,
+  type OffPeakBonusConfig,
+  type PointsExpiryConfig,
   type ProgramData,
   type Reward,
 } from "../lib/companyApi";
@@ -120,6 +126,228 @@ export function CompanyProgramPage() {
           <InactivityReminderSection slug={slug} initial={program.inactivityReminder} />
         </div>
       )}
+
+      {isAdmin && (
+        <div className="mt-10 pt-8 border-t border-black/10">
+          <ReferralSection slug={slug} initial={program.referralBonusPoints} />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mt-10 pt-8 border-t border-black/10">
+          <OffPeakSection slug={slug} initial={program.offPeakBonus} />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mt-10 pt-8 border-t border-black/10">
+          <PointsExpirySection slug={slug} initial={program.pointsExpiry} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReferralSection({ slug, initial }: { slug: string; initial: number }) {
+  const [bonusPoints, setBonusPoints] = useState(String(initial));
+  const [saving, setSaving] = useState(false);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSavedMessage(null);
+    try {
+      await updateReferralBonus(slug, Number(bonusPoints));
+      setSavedMessage("Configuration enregistrée");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-black/45 mb-3">Parrainage</p>
+      <p className="text-xs text-black/50 mb-3">
+        À l'inscription, un nouveau client peut renseigner le numéro de fidélité d'un client existant qui l'a
+        parrainé — les deux reçoivent alors ce nombre de points, en plus du point offert à toute inscription.
+      </p>
+      <form onSubmit={handleSave} className="rounded-2xl border border-black/10 bg-white p-4 flex items-end gap-3">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-black/45">
+            Points offerts (parrain + filleul)
+          </span>
+          <input
+            value={bonusPoints}
+            onChange={(e) => setBonusPoints(e.target.value)}
+            inputMode="numeric"
+            className="w-28 rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+            required
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-xl py-2.5 px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60"
+          style={{ background: "#171512" }}
+        >
+          {saving ? "…" : "Enregistrer"}
+        </button>
+      </form>
+      {savedMessage && <p className="text-sm text-green-700 mt-2">{savedMessage}</p>}
+    </div>
+  );
+}
+
+function OffPeakSection({ slug, initial }: { slug: string; initial: OffPeakBonusConfig }) {
+  const [enabled, setEnabled] = useState(initial.enabled);
+  const [startHour, setStartHour] = useState(String(initial.startHour));
+  const [endHour, setEndHour] = useState(String(initial.endHour));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSavedMessage(null);
+    try {
+      await updateOffPeakBonus(slug, { enabled, startHour: Number(startHour), endHour: Number(endHour) });
+      setSavedMessage("Configuration enregistrée");
+    } catch {
+      setError("Vérifiez les heures saisies (l'heure de début doit différer de l'heure de fin).");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-black/45 mb-3">Heures creuses</p>
+      <p className="text-xs text-black/50 mb-3">
+        Les points sont automatiquement doublés sur les achats encaissés pendant ce créneau (heure de Paris).
+      </p>
+      <form onSubmit={handleSave} className="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Activer les points doublés
+        </label>
+        <div className="flex gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-black/45">De (heure)</span>
+            <input
+              value={startHour}
+              onChange={(e) => setStartHour(e.target.value)}
+              inputMode="numeric"
+              className="w-20 rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-black/45">À (heure)</span>
+            <input
+              value={endHour}
+              onChange={(e) => setEndHour(e.target.value)}
+              inputMode="numeric"
+              className="w-20 rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+              required
+            />
+          </label>
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {savedMessage && <p className="text-sm text-green-700">{savedMessage}</p>}
+        <button
+          type="submit"
+          disabled={saving}
+          className="self-start rounded-xl py-2.5 px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60"
+          style={{ background: "#171512" }}
+        >
+          {saving ? "…" : "Enregistrer"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function PointsExpirySection({ slug, initial }: { slug: string; initial: PointsExpiryConfig }) {
+  const [enabled, setEnabled] = useState(initial.enabled);
+  const [days, setDays] = useState(String(initial.days));
+  const [saving, setSaving] = useState(false);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSavedMessage(null);
+    try {
+      await updatePointsExpiry(slug, { enabled, days: Number(days) });
+      setSavedMessage("Configuration enregistrée");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTestNow() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await runPointsExpiryNow(slug);
+      setTestResult(`${result.expiredCount} client(s) réinitialisé(s), ${result.totalPointsExpired} points expirés.`);
+    } catch (err) {
+      setTestResult(
+        err instanceof ApiError && err.code === "EXPIRY_NOT_READY" ? "Activez l'expiration d'abord." : "Une erreur est survenue.",
+      );
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-black/45 mb-3">Expiration des points</p>
+      <p className="text-xs text-black/50 mb-3">
+        Le solde de points d'un client sans achat depuis ce délai est remis à zéro (le cumul total, lui, n'est
+        jamais perdu).
+      </p>
+      <form onSubmit={handleSave} className="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Activer l'expiration des points
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-black/45">Délai (en jours)</span>
+          <input
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
+            inputMode="numeric"
+            className="w-28 rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+            required
+          />
+        </label>
+        {savedMessage && <p className="text-sm text-green-700">{savedMessage}</p>}
+        {testResult && <p className="text-sm text-black/60">{testResult}</p>}
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-xl py-2.5 px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60"
+            style={{ background: "#171512" }}
+          >
+            {saving ? "…" : "Enregistrer"}
+          </button>
+          <button
+            type="button"
+            onClick={handleTestNow}
+            disabled={testing}
+            className="text-xs font-semibold text-black/50 hover:text-black disabled:opacity-50"
+          >
+            {testing ? "Test en cours…" : "Tester maintenant"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

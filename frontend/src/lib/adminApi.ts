@@ -150,6 +150,8 @@ export interface CompanyDetail {
   logoUrl: string | null;
   programName: string;
   accentColor: string;
+  secondaryColor: string | null;
+  logoPosition: "CENTER" | "TOP" | "SIDE";
   pointsPerCurrencyUnit: string;
   status: string;
   joinToken: string;
@@ -163,6 +165,8 @@ export interface UpdateCompanyInput {
   name?: string;
   programName?: string;
   accentColor?: string;
+  secondaryColor?: string;
+  logoPosition?: "CENTER" | "TOP" | "SIDE";
   pointsPerCurrencyUnit?: string;
 }
 

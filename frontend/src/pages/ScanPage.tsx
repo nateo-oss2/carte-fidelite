@@ -175,6 +175,12 @@ function ResultCard({ slug, data, onDone }: { slug: string; data: ScanResolveRes
         </span>
       </div>
 
+      {current.offPeakActive && (
+        <div className="rounded-2xl px-5 py-3 text-sm font-semibold text-center" style={{ background: "#171512", color: "#f3f1ed" }}>
+          ⚡ Heures creuses — points doublés en ce moment
+        </div>
+      )}
+
       <div className="rounded-2xl border border-black/10 bg-white p-6">
         <div className="flex items-center gap-4 mb-6">
           <div

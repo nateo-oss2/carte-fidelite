@@ -26,6 +26,9 @@ export function AdminCompanyEditPage() {
   const [name, setName] = useState("");
   const [programName, setProgramName] = useState("");
   const [accentColor, setAccentColor] = useState("#B08D57");
+  const [secondaryColorEnabled, setSecondaryColorEnabled] = useState(false);
+  const [secondaryColor, setSecondaryColor] = useState("#171512");
+  const [logoPosition, setLogoPosition] = useState<"CENTER" | "TOP" | "SIDE">("CENTER");
   const [pointsRule, setPointsRule] = useState("1");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -46,6 +49,9 @@ export function AdminCompanyEditPage() {
       setName(c.name);
       setProgramName(c.programName);
       setAccentColor(c.accentColor);
+      setSecondaryColorEnabled(Boolean(c.secondaryColor));
+      setSecondaryColor(c.secondaryColor ?? "#171512");
+      setLogoPosition(c.logoPosition);
       setPointsRule(c.pointsPerCurrencyUnit);
       setLogoPreview(c.logoUrl);
     });
@@ -81,6 +87,8 @@ export function AdminCompanyEditPage() {
         name: name.trim(),
         programName: programName.trim(),
         accentColor,
+        secondaryColor: secondaryColorEnabled ? secondaryColor : "",
+        logoPosition,
         pointsPerCurrencyUnit: pointsRule,
       });
       setCompany((prev) => (prev ? { ...prev, ...updated } : prev));
@@ -117,7 +125,13 @@ export function AdminCompanyEditPage() {
         className="rounded-xl py-6 mb-6"
         style={{ background: "linear-gradient(180deg, #f3f2f0 0%, #eae8e5 100%)" }}
       >
-        <WalletCardPreview companyName={name} accentColor={accentColor} logoUrl={logoPreview} />
+        <WalletCardPreview
+          companyName={name}
+          accentColor={accentColor}
+          secondaryColor={secondaryColorEnabled ? secondaryColor : null}
+          logoPosition={logoPosition}
+          logoUrl={logoPreview}
+        />
       </div>
 
       <div className="mb-6 flex flex-col items-center gap-2">
@@ -166,6 +180,44 @@ export function AdminCompanyEditPage() {
             onChange={(e) => setAccentColor(e.target.value)}
             className="h-11 w-16 rounded-lg border border-black/10"
           />
+        </label>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-black/45">
+            <input
+              type="checkbox"
+              checked={secondaryColorEnabled}
+              onChange={(e) => setSecondaryColorEnabled(e.target.checked)}
+              className="rounded border-black/20"
+            />
+            2e couleur (dégradé, optionnel)
+          </label>
+          {secondaryColorEnabled && (
+            <input
+              type="color"
+              value={secondaryColor}
+              onChange={(e) => setSecondaryColor(e.target.value)}
+              className="h-11 w-16 rounded-lg border border-black/10"
+            />
+          )}
+        </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-black/45">Position du logo</span>
+          <div className="flex gap-2">
+            {(["CENTER", "TOP", "SIDE"] as const).map((pos) => (
+              <button
+                key={pos}
+                type="button"
+                onClick={() => setLogoPosition(pos)}
+                className={`flex-1 rounded-xl border py-2.5 text-xs font-semibold uppercase tracking-wide ${
+                  logoPosition === pos ? "border-black/60 bg-black/5" : "border-black/10 text-black/50"
+                }`}
+              >
+                {pos === "CENTER" ? "Centré" : pos === "TOP" ? "En haut" : "Sur le côté"}
+              </button>
+            ))}
+          </div>
         </label>
 
         <label className="flex flex-col gap-1.5">

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { HttpError } from "../lib/httpError";
 import { requireEmployeeAuth, requireEmployeeRole } from "../middleware/companyAuth";
-import { getCustomerDetail, listCustomers } from "../services/customers";
+import { findTodaysBirthdays, getCustomerDetail, listCustomers } from "../services/customers";
 import { getActiveTokenPlaintext, revokeActiveToken } from "../services/tokens";
 import { sendNotifications } from "../services/customerNotifications";
 import { generateBarcodePng } from "../services/barcode";
@@ -21,6 +21,15 @@ router.get(
   asyncHandler(async (req, res) => {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : undefined;
     const customers = await listCustomers(req.employee!.companyId, search || undefined);
+    res.json({ customers });
+  }),
+);
+
+/** GET /company/:slug/customers/birthdays-today — clients dont c'est l'anniversaire aujourd'hui. */
+router.get(
+  "/birthdays-today",
+  asyncHandler(async (req, res) => {
+    const customers = await findTodaysBirthdays(req.employee!.companyId);
     res.json({ customers });
   }),
 );

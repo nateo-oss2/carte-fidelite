@@ -11,6 +11,7 @@ import { listRewards } from "../services/rewards";
 import { listDiscountTiers, resolveApplicableTier } from "../services/discountTiers";
 import { alertRevokedTokenAttempt, checkAndAlertRapidScanFailures } from "../services/securityAlerts";
 import { recordPurchase, redeemReward } from "../services/transactions";
+import { isOffPeakNow } from "../lib/offPeak";
 
 /**
  * Scan et encaissement depuis le dashboard entreprise — authentifié par la session employé
@@ -90,6 +91,7 @@ router.post(
       companyAccentColor: company!.accentColor,
       availableRewards,
       currentDiscountPercent,
+      offPeakActive: isOffPeakNow(company!),
     });
   }),
 );

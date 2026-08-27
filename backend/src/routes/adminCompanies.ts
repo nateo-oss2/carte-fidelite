@@ -108,6 +108,8 @@ router.get(
       logoUrl: company.logoUrl,
       programName: company.programName,
       accentColor: company.accentColor,
+      secondaryColor: company.secondaryColor,
+      logoPosition: company.logoPosition,
       pointsPerCurrencyUnit: company.pointsPerCurrencyUnit,
       status: company.status,
       joinToken: company.joinToken,
@@ -147,6 +149,12 @@ const updateCompanySchema = z.object({
     .trim()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
+  // Optionnelle : quand renseignée, la carte affiche un dégradé/double trait entre accentColor
+  // et secondaryColor plutôt qu'une seule couleur unie. Chaîne vide = retirer la 2e couleur.
+  secondaryColor: z
+    .union([z.string().trim().regex(/^#[0-9a-fA-F]{6}$/), z.literal("")])
+    .optional(),
+  logoPosition: z.enum(["CENTER", "TOP", "SIDE"]).optional(),
   programName: z.string().trim().min(1).max(120).optional(),
   pointsPerCurrencyUnit: z
     .string()
@@ -164,7 +172,10 @@ router.patch(
       throw new HttpError(400, "INVALID_INPUT");
     }
 
-    const company = await updateCompany(req.params.id, parsed.data);
+    const company = await updateCompany(req.params.id, {
+      ...parsed.data,
+      secondaryColor: parsed.data.secondaryColor === "" ? null : parsed.data.secondaryColor,
+    });
 
     await recordAuditLog({
       companyId: company.id,
@@ -183,6 +194,8 @@ router.patch(
       logoUrl: company.logoUrl,
       programName: company.programName,
       accentColor: company.accentColor,
+      secondaryColor: company.secondaryColor,
+      logoPosition: company.logoPosition,
       pointsPerCurrencyUnit: company.pointsPerCurrencyUnit,
     });
   }),
