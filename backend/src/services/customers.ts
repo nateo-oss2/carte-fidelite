@@ -3,6 +3,7 @@ import { prisma } from "../prisma";
 import { generateLoyaltyNumber } from "./loyaltyNumber";
 import { issueInitialToken, rotateToken } from "./tokens";
 import { recordAuditLog } from "./auditLog";
+import { generateOpaqueSecret, sha256Hex } from "../lib/crypto";
 
 export interface JoinInput {
   firstName?: string;
@@ -29,6 +30,8 @@ export interface JoinResult {
   alreadyEnrolled: boolean;
   /** true si un code de parrainage valide a été appliqué (bonus crédité aux deux). */
   referralApplied: boolean;
+  /** Jeton brut du lien "voir ma fiche" — distinct du token du code-barres, renvoyé une seule fois ici. */
+  cardViewToken: string;
 }
 
 const MAX_LOYALTY_NUMBER_ATTEMPTS = 5;
@@ -52,6 +55,11 @@ export async function joinCompanyProgram(
 
   if (existing) {
     const rawToken = await rotateToken(existing.id);
+    const rawCardViewToken = generateOpaqueSecret();
+    await prisma.customer.update({
+      where: { id: existing.id },
+      data: { cardViewTokenHash: sha256Hex(rawCardViewToken), cardViewTokenRotated: false },
+    });
     await recordAuditLog({
       companyId,
       actorType: "CUSTOMER",
@@ -72,6 +80,7 @@ export async function joinCompanyProgram(
       rawToken,
       alreadyEnrolled: true,
       referralApplied: false,
+      cardViewToken: rawCardViewToken,
     };
   }
 
@@ -87,6 +96,7 @@ export async function joinCompanyProgram(
   const referralBonus = company?.referralBonusPoints ?? 0;
 
   for (let attempt = 0; attempt < MAX_LOYALTY_NUMBER_ATTEMPTS; attempt++) {
+    const rawCardViewToken = generateOpaqueSecret();
     try {
       const customer = await prisma.$transaction(async (tx) => {
         const created = await tx.customer.create({
@@ -100,6 +110,7 @@ export async function joinCompanyProgram(
             loyaltyNumber: generateLoyaltyNumber(),
             pointsBalance: 0,
             referredById: validReferrer?.id ?? null,
+            cardViewTokenHash: sha256Hex(rawCardViewToken),
           },
         });
 
@@ -187,6 +198,7 @@ export async function joinCompanyProgram(
         rawToken,
         alreadyEnrolled: false,
         referralApplied: Boolean(validReferrer && referralBonus > 0),
+        cardViewToken: rawCardViewToken,
       };
     } catch (error) {
       const isUniqueLoyaltyNumberClash =

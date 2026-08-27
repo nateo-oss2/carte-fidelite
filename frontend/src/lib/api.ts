@@ -53,6 +53,7 @@ export interface JoinResponse {
   alreadyEnrolled: boolean;
   referralApplied: boolean;
   walletToken: string;
+  cardViewToken: string;
 }
 
 export interface CustomerCardInfo {
@@ -65,6 +66,8 @@ export interface CustomerCardInfo {
   companyLogoUrl: string | null;
   companyAccentColor: string;
   programType: "POINTS" | "DISCOUNT";
+  /** Présent une seule fois, à la première consultation : nouveau lien permanent à utiliser. */
+  newToken: string | null;
 }
 
 export function fetchCustomerCard(token: string): Promise<CustomerCardInfo> {

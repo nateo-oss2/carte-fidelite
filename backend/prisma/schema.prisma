@@ -142,6 +142,12 @@ model Customer {
   referredBy   Customer?  @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
   referrals    Customer[] @relation("Referrals")
 
+  // Lien "voir ma fiche client" — jamais le même secret que le token du code-barres (celui-ci
+  // ne doit jamais changer, il est embarqué dans le pass Wallet réel). Régénéré une seule fois,
+  // à la première consultation, pour qu'un lien vu par quelqu'un d'autre entre-temps expire.
+  cardViewTokenHash    String? @unique
+  cardViewTokenRotated Boolean @default(false)
+
   // Solde dépensable, contrôlé exclusivement côté serveur — jamais modifié directement,
   // uniquement dérivé de la somme des transactions (balanceAfter de la dernière transaction).
   // Diminue quand une récompense est échangée (mode POINTS).

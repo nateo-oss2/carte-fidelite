@@ -100,6 +100,34 @@ export async function wasTokenRevoked(rawToken: string): Promise<boolean> {
 }
 
 /**
+ * Résout le lien "voir ma fiche client" — un secret distinct du token du code-barres (celui-ci
+ * ne doit jamais changer, il est encodé dans le pass Wallet réel). À la toute première
+ * consultation, ce lien est régénéré une fois : un lien vu/partagé avant cette rotation cesse de
+ * fonctionner, la nouvelle valeur brute est renvoyée pour que la page l'affiche/l'enregistre.
+ * Les consultations suivantes n'entraînent plus de rotation.
+ */
+export async function resolveCustomerByCardViewToken(
+  rawToken: string,
+): Promise<{ customer: NonNullable<Awaited<ReturnType<typeof prisma.customer.findUnique>>>; newToken: string | null } | null> {
+  const tokenHash = sha256Hex(rawToken);
+  const customer = await prisma.customer.findUnique({ where: { cardViewTokenHash: tokenHash } });
+  if (!customer || customer.status !== "ACTIVE") {
+    return null;
+  }
+
+  if (customer.cardViewTokenRotated) {
+    return { customer, newToken: null };
+  }
+
+  const newRawToken = generateOpaqueSecret();
+  const updated = await prisma.customer.update({
+    where: { id: customer.id },
+    data: { cardViewTokenHash: sha256Hex(newRawToken), cardViewTokenRotated: true },
+  });
+  return { customer: updated, newToken: newRawToken };
+}
+
+/**
  * Récupère la valeur en clair du token actif d'un client — réservé exclusivement à la
  * reconstruction d'un pass Wallet (Apple/Google) à leur demande, jamais à un usage de scan
  * ou à une exposition sur une route publique.

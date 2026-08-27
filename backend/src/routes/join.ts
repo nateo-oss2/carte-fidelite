@@ -6,7 +6,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { HttpError } from "../lib/httpError";
 import { joinCompanyProgram } from "../services/customers";
 import { generateQrCodePng } from "../services/qrCode";
-import { resolveCustomerByToken } from "../services/tokens";
+import { resolveCustomerByCardViewToken } from "../services/tokens";
 
 const router = Router();
 
@@ -113,22 +113,27 @@ router.post(
       // Valeur à encoder immédiatement dans le pass Wallet généré côté client de cet appel ;
       // elle n'est pas récupérable ensuite (seul son hash est conservé en base).
       walletToken: result.rawToken,
+      // Lien "voir ma fiche" — distinct du token du code-barres ci-dessus, lui aussi à usage
+      // unique avant sa première rotation (voir GET /join/customer/:token).
+      cardViewToken: result.cardViewToken,
     });
   }),
 );
 
 /**
  * GET /join/customer/:token — fiche client en lecture seule, accessible au client lui-même
- * (bouton "voir ma fiche" affiché juste après l'inscription). Le token est le même identifiant
- * que celui encodé dans le code-barres du pass Wallet — déjà traité comme un secret porteur.
+ * (bouton "voir ma fiche" affiché juste après l'inscription). Le lien change une fois, à la
+ * première consultation : si `newToken` est présent dans la réponse, c'est le nouveau lien
+ * permanent à utiliser désormais — celui qui vient de servir cesse de fonctionner.
  */
 router.get(
   "/customer/:token",
   asyncHandler(async (req, res) => {
-    const customer = await resolveCustomerByToken(req.params.token);
-    if (!customer) {
+    const result = await resolveCustomerByCardViewToken(req.params.token);
+    if (!result) {
       throw new HttpError(404, "CUSTOMER_NOT_FOUND");
     }
+    const { customer, newToken } = result;
 
     const company = await prisma.company.findUnique({ where: { id: customer.companyId } });
     if (!company) {
@@ -145,6 +150,7 @@ router.get(
       companyLogoUrl: company.logoUrl,
       companyAccentColor: company.accentColor,
       programType: company.programType,
+      newToken,
     });
   }),
 );

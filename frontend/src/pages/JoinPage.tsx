@@ -259,7 +259,7 @@ function ConfirmationView({
         )}
 
         <Link
-          to={`/ma-carte/${result.walletToken}`}
+          to={`/ma-carte/${result.cardViewToken}`}
           className="text-xs font-semibold uppercase tracking-wide text-black/50 hover:text-black underline underline-offset-2 mt-2"
         >
           Voir ma fiche client

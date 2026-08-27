@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { ApiError, fetchCustomerCard, type CustomerCardInfo } from "../lib/api";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { fetchCustomerCard, type CustomerCardInfo } from "../lib/api";
 import { ArchMark } from "../components/ArchMark";
 
 type LoadState = { status: "loading" } | { status: "not-found" } | { status: "ready"; card: CustomerCardInfo };
@@ -8,26 +8,43 @@ type LoadState = { status: "loading" } | { status: "not-found" } | { status: "re
 /** Fiche client en lecture seule, accessible au client lui-même via le lien reçu après inscription. */
 export function CustomerCardPage() {
   const { token = "" } = useParams();
+  const navigate = useNavigate();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [rotatedLink, setRotatedLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  // Le lien tourne une seule fois côté serveur : un double appel (React StrictMode en dev,
+  // double-clic, prefetch navigateur) sur le même token ferait échouer le second. On garde une
+  // trace du token déjà consommé pour ne jamais rejouer l'appel réseau pour cette même valeur.
+  const consumedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    // Garde anti-double-appel unique (pas de flag "cancelled" en plus : un lien à usage unique
+    // ne doit jamais laisser une réponse réelle se faire jeter par un remontage React en dev).
+    if (consumedTokenRef.current === token) return;
+    consumedTokenRef.current = token;
+
     fetchCustomerCard(token)
       .then((card) => {
-        if (!cancelled) setState({ status: "ready", card });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (err instanceof ApiError && err.status === 404) {
-          setState({ status: "not-found" });
-        } else {
-          setState({ status: "not-found" });
+        setState({ status: "ready", card });
+        if (card.newToken) {
+          // Le lien qui vient de servir ne fonctionnera plus — on bascule discrètement l'URL du
+          // navigateur vers le nouveau, pour qu'un rafraîchissement ou un favori créé maintenant
+          // continue de marcher, et on l'affiche pour que le client puisse le sauvegarder ailleurs.
+          const newUrl = `/ma-carte/${card.newToken}`;
+          navigate(newUrl, { replace: true });
+          setRotatedLink(`${window.location.origin}${newUrl}`);
         }
+      })
+      .catch(() => {
+        setState({ status: "not-found" });
       });
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  function handleCopy() {
+    if (!rotatedLink) return;
+    navigator.clipboard.writeText(rotatedLink).then(() => setCopied(true));
+  }
 
   if (state.status === "loading") {
     return <div className="min-h-screen flex items-center justify-center text-sm text-black/40">Chargement…</div>;
@@ -80,6 +97,22 @@ export function CustomerCardPage() {
           </div>
           <p className="text-xs text-black/35 font-mono mt-2">{card.lifetimePoints} pts cumulés au total</p>
         </div>
+
+        {rotatedLink && (
+          <div className="w-full rounded-2xl border border-black/10 bg-black/[0.03] p-4 flex flex-col gap-2 text-left">
+            <p className="text-xs font-semibold text-black/70">
+              Ce lien a été mis à jour pour votre sécurité — enregistrez celui-ci pour revenir facilement :
+            </p>
+            <code className="text-xs break-all text-black/60">{rotatedLink}</code>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="self-start text-xs font-semibold uppercase tracking-wide text-black/70 border border-black/10 rounded-lg px-3 py-1.5 hover:border-black/30"
+            >
+              {copied ? "Copié !" : "Copier le lien"}
+            </button>
+          </div>
+        )}
 
         <p className="text-xs text-black/40">
           Présentez votre carte Wallet en caisse pour cumuler des points à chaque achat.
