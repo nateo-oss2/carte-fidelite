@@ -171,6 +171,11 @@ router.get(
       currentDiscountPercent,
       pointsExpiryEnabled: company.pointsExpiryEnabled,
       pointsExpiryMonths: Math.round(company.pointsExpiryDays / 30),
+      offPeakBonus: {
+        enabled: company.offPeakBonusEnabled,
+        startHour: company.offPeakStartHour,
+        endHour: company.offPeakEndHour,
+      },
       newToken,
     });
   }),

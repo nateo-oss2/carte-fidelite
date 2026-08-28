@@ -177,6 +177,7 @@ export interface CustomerDetail {
   programType: "POINTS" | "DISCOUNT";
   availableRewards: AvailableReward[];
   currentDiscountPercent: string | null;
+  offPeakBonus: { enabled: boolean; startHour: number; endHour: number };
   recentTransactions: CustomerTransaction[];
 }
 

@@ -129,6 +129,11 @@ export function CustomerDetailPage() {
           <span className="text-[11px] uppercase tracking-widest text-black/40">Cumul total</span>
           <span className="text-xs font-mono text-black/60 ml-auto">{customer.lifetimePoints} pts</span>
         </div>
+        {customer.offPeakBonus.enabled && (
+          <p className="text-xs text-black/40 pt-3 mt-3 border-t border-black/5">
+            Points doublés entre {customer.offPeakBonus.startHour}h et {customer.offPeakBonus.endHour}h.
+          </p>
+        )}
       </div>
 
       {customer.programType === "DISCOUNT" ? (

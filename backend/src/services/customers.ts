@@ -352,6 +352,11 @@ export async function getCustomerDetail(companyId: string, customerId: string) {
     programType: company!.programType,
     availableRewards,
     currentDiscountPercent,
+    offPeakBonus: {
+      enabled: company!.offPeakBonusEnabled,
+      startHour: company!.offPeakStartHour,
+      endHour: company!.offPeakEndHour,
+    },
     recentTransactions: customer.transactions.map((tx) => ({
       id: tx.id,
       type: tx.type,

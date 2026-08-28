@@ -76,6 +76,7 @@ export interface CustomerCardInfo {
   currentDiscountPercent: string | null;
   pointsExpiryEnabled: boolean;
   pointsExpiryMonths: number;
+  offPeakBonus: { enabled: boolean; startHour: number; endHour: number };
   /** Présent une seule fois, à la première consultation : nouveau lien permanent à utiliser. */
   newToken: string | null;
 }
