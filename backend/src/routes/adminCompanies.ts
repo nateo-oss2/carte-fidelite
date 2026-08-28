@@ -109,7 +109,7 @@ router.get(
       programName: company.programName,
       accentColor: company.accentColor,
       secondaryColor: company.secondaryColor,
-      logoPosition: company.logoPosition,
+      cardTemplate: company.cardTemplate,
       pointsPerCurrencyUnit: company.pointsPerCurrencyUnit,
       status: company.status,
       joinToken: company.joinToken,
@@ -154,7 +154,7 @@ const updateCompanySchema = z.object({
   secondaryColor: z
     .union([z.string().trim().regex(/^#[0-9a-fA-F]{6}$/), z.literal("")])
     .optional(),
-  logoPosition: z.enum(["CENTER", "TOP", "SIDE"]).optional(),
+  cardTemplate: z.enum(["BANNER", "GRADIENT", "FRAME", "SPLIT"]).optional(),
   programName: z.string().trim().min(1).max(120).optional(),
   pointsPerCurrencyUnit: z
     .string()
@@ -195,7 +195,7 @@ router.patch(
       programName: company.programName,
       accentColor: company.accentColor,
       secondaryColor: company.secondaryColor,
-      logoPosition: company.logoPosition,
+      cardTemplate: company.cardTemplate,
       pointsPerCurrencyUnit: company.pointsPerCurrencyUnit,
     });
   }),

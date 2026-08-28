@@ -7,6 +7,7 @@ import {
   redeemCustomerReward,
   type CustomerDetail,
 } from "../lib/companyApi";
+import { WalletCardPreview } from "../components/WalletCardPreview";
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: "Achat",
@@ -111,6 +112,16 @@ export function CustomerDetailPage() {
           </p>
           {customer.email && <p className="text-xs text-black/40 mt-0.5">{customer.email}</p>}
         </div>
+      </div>
+
+      <div className="mb-6">
+        <WalletCardPreview
+          companyName={customer.companyName}
+          accentColor={customer.companyAccentColor}
+          secondaryColor={customer.companySecondaryColor}
+          cardTemplate={customer.companyCardTemplate}
+          logoUrl={customer.companyLogoUrl}
+        />
       </div>
 
       <div className="rounded-2xl border border-black/10 bg-white px-5 py-4 mb-4 flex items-center justify-between">

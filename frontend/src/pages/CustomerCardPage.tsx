@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { customerCardBarcodeUrl, fetchCustomerCard, type CustomerCardInfo } from "../lib/api";
-import { ArchMark } from "../components/ArchMark";
+import { WalletCardPreview } from "../components/WalletCardPreview";
 
 type LoadState = { status: "loading" } | { status: "not-found" } | { status: "ready"; card: CustomerCardInfo };
 
@@ -69,12 +69,13 @@ export function CustomerCardPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm flex flex-col items-center text-center gap-6">
-        {card.companyLogoUrl ? (
-          <img src={card.companyLogoUrl} alt="" className="w-12 h-12 rounded-full object-cover" />
-        ) : (
-          <ArchMark color={card.companyAccentColor} size={48} />
-        )}
-        <p className="text-xs font-semibold uppercase tracking-widest text-black/45">{card.companyName}</p>
+        <WalletCardPreview
+          companyName={card.companyName}
+          accentColor={card.companyAccentColor}
+          secondaryColor={card.companySecondaryColor}
+          cardTemplate={card.companyCardTemplate}
+          logoUrl={card.companyLogoUrl}
+        />
 
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold text-white"

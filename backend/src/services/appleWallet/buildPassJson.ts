@@ -34,9 +34,12 @@ export function buildPassJson(input: ApplePassInput) {
     authenticationToken: input.authenticationToken,
     webServiceURL: input.webServiceURL,
     logoText: input.companyName,
-    backgroundColor: "rgb(255, 255, 255)",
-    foregroundColor: "rgb(23, 21, 18)",
-    labelColor: hexToRgb(input.accentColor),
+    // Le pass Apple ne supporte qu'une couleur de fond unie (pas de dégradé/bandeau/cadre comme
+    // dans les modèles du dashboard) : on applique la couleur principale de l'entreprise en fond,
+    // avec un texte blanc pour rester lisible dessus.
+    backgroundColor: hexToRgb(input.accentColor),
+    foregroundColor: "rgb(255, 255, 255)",
+    labelColor: "rgb(255, 255, 255)",
     storeCard: {
       headerFields: [],
       primaryFields: [],

@@ -14,7 +14,14 @@ import {
   type CompanyDetail,
   type CreateEmployeeResponse,
 } from "../lib/adminApi";
-import { WalletCardPreview } from "../components/WalletCardPreview";
+import { WalletCardPreview, type CardTemplate } from "../components/WalletCardPreview";
+
+const CARD_TEMPLATES: { value: CardTemplate; label: string }[] = [
+  { value: "BANNER", label: "Bandeau" },
+  { value: "GRADIENT", label: "Dégradé" },
+  { value: "FRAME", label: "Cadre" },
+  { value: "SPLIT", label: "Split" },
+];
 
 export function AdminCompanyEditPage() {
   const { id = "" } = useParams();
@@ -28,7 +35,7 @@ export function AdminCompanyEditPage() {
   const [accentColor, setAccentColor] = useState("#B08D57");
   const [secondaryColorEnabled, setSecondaryColorEnabled] = useState(false);
   const [secondaryColor, setSecondaryColor] = useState("#171512");
-  const [logoPosition, setLogoPosition] = useState<"CENTER" | "TOP" | "SIDE">("CENTER");
+  const [cardTemplate, setCardTemplate] = useState<CardTemplate>("BANNER");
   const [pointsRule, setPointsRule] = useState("1");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -51,7 +58,7 @@ export function AdminCompanyEditPage() {
       setAccentColor(c.accentColor);
       setSecondaryColorEnabled(Boolean(c.secondaryColor));
       setSecondaryColor(c.secondaryColor ?? "#171512");
-      setLogoPosition(c.logoPosition);
+      setCardTemplate(c.cardTemplate);
       setPointsRule(c.pointsPerCurrencyUnit);
       setLogoPreview(c.logoUrl);
     });
@@ -88,7 +95,7 @@ export function AdminCompanyEditPage() {
         programName: programName.trim(),
         accentColor,
         secondaryColor: secondaryColorEnabled ? secondaryColor : "",
-        logoPosition,
+        cardTemplate,
         pointsPerCurrencyUnit: pointsRule,
       });
       setCompany((prev) => (prev ? { ...prev, ...updated } : prev));
@@ -129,7 +136,7 @@ export function AdminCompanyEditPage() {
           companyName={name}
           accentColor={accentColor}
           secondaryColor={secondaryColorEnabled ? secondaryColor : null}
-          logoPosition={logoPosition}
+          cardTemplate={cardTemplate}
           logoUrl={logoPreview}
         />
       </div>
@@ -203,18 +210,33 @@ export function AdminCompanyEditPage() {
         </div>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-black/45">Position du logo</span>
-          <div className="flex gap-2">
-            {(["CENTER", "TOP", "SIDE"] as const).map((pos) => (
+          <span className="text-xs font-semibold uppercase tracking-wide text-black/45">Modèle de carte</span>
+          <div className="grid grid-cols-2 gap-2">
+            {CARD_TEMPLATES.map((tpl) => (
               <button
-                key={pos}
+                key={tpl.value}
                 type="button"
-                onClick={() => setLogoPosition(pos)}
-                className={`flex-1 rounded-xl border py-2.5 text-xs font-semibold uppercase tracking-wide ${
-                  logoPosition === pos ? "border-black/60 bg-black/5" : "border-black/10 text-black/50"
+                onClick={() => setCardTemplate(tpl.value)}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border py-2 ${
+                  cardTemplate === tpl.value ? "border-black/60 bg-black/5" : "border-black/10"
                 }`}
               >
-                {pos === "CENTER" ? "Centré" : pos === "TOP" ? "En haut" : "Sur le côté"}
+                <div className="scale-[0.4] origin-center -my-6">
+                  <WalletCardPreview
+                    companyName={name}
+                    accentColor={accentColor}
+                    secondaryColor={secondaryColorEnabled ? secondaryColor : null}
+                    cardTemplate={tpl.value}
+                    logoUrl={logoPreview}
+                  />
+                </div>
+                <span
+                  className={`text-xs font-semibold uppercase tracking-wide ${
+                    cardTemplate === tpl.value ? "text-black" : "text-black/50"
+                  }`}
+                >
+                  {tpl.label}
+                </span>
               </button>
             ))}
           </div>

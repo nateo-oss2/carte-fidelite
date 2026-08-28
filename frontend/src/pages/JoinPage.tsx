@@ -10,6 +10,7 @@ import {
   type JoinResponse,
 } from "../lib/api";
 import { ArchMark } from "../components/ArchMark";
+import { WalletCardPreview } from "../components/WalletCardPreview";
 import { detectWalletPlatform } from "../lib/device";
 import { describePointsRule } from "../lib/pointsRule";
 
@@ -114,16 +115,13 @@ export function JoinPage() {
     <div className="min-h-screen flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-4 mb-10">
-          <ArchMark color={company.accentColor} />
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1
-              className="text-lg font-bold uppercase tracking-widest"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {company.companyName}
-            </h1>
-            <div className="w-6 h-0.5 rounded-full" style={{ background: company.accentColor }} />
-          </div>
+          <WalletCardPreview
+            companyName={company.companyName}
+            accentColor={company.accentColor}
+            secondaryColor={company.secondaryColor}
+            cardTemplate={company.cardTemplate}
+            logoUrl={company.logoUrl}
+          />
           <p className="text-sm text-black/60 text-center">
             Rejoignez {company.programName} — {describePointsRule(company.pointsPerCurrencyUnit)}
           </p>

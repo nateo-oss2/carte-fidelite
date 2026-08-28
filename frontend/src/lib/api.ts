@@ -30,6 +30,8 @@ export interface CompanyPublicInfo {
   logoUrl: string | null;
   programName: string;
   accentColor: string;
+  secondaryColor: string | null;
+  cardTemplate: "BANNER" | "GRADIENT" | "FRAME" | "SPLIT";
   pointsPerCurrencyUnit: string;
 }
 
@@ -71,6 +73,8 @@ export interface CustomerCardInfo {
   companyName: string;
   companyLogoUrl: string | null;
   companyAccentColor: string;
+  companySecondaryColor: string | null;
+  companyCardTemplate: "BANNER" | "GRADIENT" | "FRAME" | "SPLIT";
   programType: "POINTS" | "DISCOUNT";
   availableRewards: CustomerCardReward[];
   currentDiscountPercent: string | null;
