@@ -174,11 +174,25 @@ export interface CustomerDetail {
   status: string;
   hasActiveCard: boolean;
   createdAt: string;
+  programType: "POINTS" | "DISCOUNT";
+  availableRewards: AvailableReward[];
+  currentDiscountPercent: string | null;
   recentTransactions: CustomerTransaction[];
 }
 
 export function getCustomerDetail(slug: string, customerId: string): Promise<CustomerDetail> {
   return request(`/company/${slug}/customers/${customerId}`);
+}
+
+export function redeemCustomerReward(
+  slug: string,
+  customerId: string,
+  rewardId: string,
+): Promise<TransactionResult> {
+  return request(`/company/${slug}/customers/${customerId}/redeem`, {
+    method: "POST",
+    body: JSON.stringify({ rewardId }),
+  });
 }
 
 export function customerBarcodeUrl(slug: string, customerId: string): string {

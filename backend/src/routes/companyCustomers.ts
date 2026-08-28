@@ -10,6 +10,7 @@ import { sendNotifications } from "../services/customerNotifications";
 import { generateBarcodePng } from "../services/barcode";
 import { prisma } from "../prisma";
 import { recordAuditLog } from "../services/auditLog";
+import { redeemReward } from "../services/transactions";
 
 const router = Router({ mergeParams: true });
 
@@ -98,6 +99,37 @@ router.post(
     });
 
     res.status(200).json({ revoked: true });
+  }),
+);
+
+const redeemSchema = z.object({ rewardId: z.string().uuid() });
+
+/**
+ * POST /company/:slug/customers/:customerId/redeem — échange une récompense depuis la fiche
+ * client (équivalent de l'échange proposé sur l'écran de scan, mais depuis l'onglet Clients).
+ */
+router.post(
+  "/:customerId/redeem",
+  asyncHandler(async (req, res) => {
+    const parsed = redeemSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new HttpError(400, "INVALID_INPUT");
+    }
+
+    const transaction = await redeemReward({
+      companyId: req.employee!.companyId,
+      customerId: req.params.customerId,
+      rewardId: parsed.data.rewardId,
+      employeeId: req.employee!.id,
+      idempotencyKey: `redeem-${req.params.customerId}-${parsed.data.rewardId}-${Date.now()}`,
+    });
+
+    res.status(201).json({
+      transactionId: transaction.id,
+      status: transaction.status,
+      pointsDelta: transaction.pointsDelta,
+      balanceAfter: transaction.balanceAfter,
+    });
   }),
 );
 

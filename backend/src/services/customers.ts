@@ -4,6 +4,8 @@ import { generateLoyaltyNumber } from "./loyaltyNumber";
 import { issueInitialToken, rotateToken } from "./tokens";
 import { recordAuditLog } from "./auditLog";
 import { generateOpaqueSecret, sha256Hex } from "../lib/crypto";
+import { listRewards } from "./rewards";
+import { listDiscountTiers, resolveApplicableTier } from "./discountTiers";
 
 export interface JoinInput {
   firstName?: string;
@@ -319,6 +321,22 @@ export async function getCustomerDetail(companyId: string, customerId: string) {
     return null;
   }
 
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+
+  let availableRewards: Array<{ id: string; name: string; pointsCost: number }> = [];
+  let currentDiscountPercent: string | null = null;
+
+  if (company!.programType === "POINTS") {
+    const rewards = await listRewards(companyId, true);
+    availableRewards = rewards
+      .filter((r) => r.pointsCost <= customer.pointsBalance)
+      .map((r) => ({ id: r.id, name: r.name, pointsCost: r.pointsCost }));
+  } else {
+    const tiers = await listDiscountTiers(companyId);
+    const tier = resolveApplicableTier(tiers, customer.lifetimePoints);
+    currentDiscountPercent = tier ? tier.discountPercent.toString() : null;
+  }
+
   return {
     id: customer.id,
     firstName: customer.firstName,
@@ -331,6 +349,9 @@ export async function getCustomerDetail(companyId: string, customerId: string) {
     status: customer.status,
     hasActiveCard: customer.tokens.length > 0,
     createdAt: customer.createdAt,
+    programType: company!.programType,
+    availableRewards,
+    currentDiscountPercent,
     recentTransactions: customer.transactions.map((tx) => ({
       id: tx.id,
       type: tx.type,

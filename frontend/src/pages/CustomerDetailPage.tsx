@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { companyMe, customerBarcodeUrl, getCustomerDetail, type CustomerDetail } from "../lib/companyApi";
+import {
+  companyMe,
+  customerBarcodeUrl,
+  getCustomerDetail,
+  redeemCustomerReward,
+  type CustomerDetail,
+} from "../lib/companyApi";
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: "Achat",
@@ -17,6 +23,8 @@ export function CustomerDetailPage() {
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [barcodeSrc, setBarcodeSrc] = useState<string | null>(null);
   const [barcodeError, setBarcodeError] = useState(false);
+  const [redeemingId, setRedeemingId] = useState<string | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
 
   useEffect(() => {
     companyMe(slug)
@@ -25,11 +33,26 @@ export function CustomerDetailPage() {
       .finally(() => setChecking(false));
   }, [slug, navigate]);
 
+  const refreshCustomer = useCallback(() => {
+    getCustomerDetail(slug, customerId).then(setCustomer);
+  }, [slug, customerId]);
+
   useEffect(() => {
-    if (!checking) {
-      getCustomerDetail(slug, customerId).then(setCustomer);
+    if (!checking) refreshCustomer();
+  }, [checking, refreshCustomer]);
+
+  async function handleRedeem(rewardId: string) {
+    setRedeemingId(rewardId);
+    setRedeemError(null);
+    try {
+      await redeemCustomerReward(slug, customerId, rewardId);
+      refreshCustomer();
+    } catch {
+      setRedeemError("Impossible d'échanger cette récompense.");
+    } finally {
+      setRedeemingId(null);
     }
-  }, [checking, slug, customerId]);
+  }
 
   useEffect(() => {
     if (checking || !customer || !(role === "ADMIN" || role === "MANAGER") || !customer.hasActiveCard) return;
@@ -107,6 +130,48 @@ export function CustomerDetailPage() {
           <span className="text-xs font-mono text-black/60 ml-auto">{customer.lifetimePoints} pts</span>
         </div>
       </div>
+
+      {customer.programType === "DISCOUNT" ? (
+        <div className="rounded-2xl border border-black/10 bg-white p-5 mb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 mb-2">
+            Réduction actuelle
+          </p>
+          <p className="text-2xl font-extrabold" style={{ fontFamily: "var(--font-display)" }}>
+            {customer.currentDiscountPercent ? `${Number(customer.currentDiscountPercent)}%` : "Aucune"}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-black/10 bg-white overflow-hidden mb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 px-5 pt-4 pb-2">
+            Récompenses disponibles
+          </p>
+          {customer.availableRewards.length === 0 ? (
+            <p className="text-sm text-black/40 px-5 pb-5">
+              Pas encore assez de points pour une récompense.
+            </p>
+          ) : (
+            <ul>
+              {customer.availableRewards.map((reward) => (
+                <li key={reward.id} className="px-5 py-3 border-t border-black/5 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{reward.name}</p>
+                    <p className="text-xs text-black/40 font-mono">{reward.pointsCost} pts</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={redeemingId === reward.id}
+                    onClick={() => handleRedeem(reward.id)}
+                    className="text-xs font-semibold uppercase tracking-wide px-3 py-1.5 rounded-lg text-black/70 border border-black/10 hover:border-black/30 disabled:opacity-50 flex-shrink-0"
+                  >
+                    {redeemingId === reward.id ? "…" : "Échanger"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {redeemError && <p className="text-sm text-red-600 px-5 pb-4">{redeemError}</p>}
+        </div>
+      )}
 
       <div className="rounded-2xl border border-black/10 bg-white p-5 mb-6 flex flex-col items-center gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 self-start">
