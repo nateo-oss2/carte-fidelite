@@ -100,6 +100,19 @@ export async function wasTokenRevoked(rawToken: string): Promise<boolean> {
 }
 
 /**
+ * Lecture simple (sans rotation) du lien "voir ma fiche client" — pour toute requête annexe
+ * de cette même page (ex: son image de code-barres) qui ne doit jamais déclencher une seconde
+ * rotation ; seule la consultation initiale de la fiche fait tourner le lien.
+ */
+export async function findCustomerByCardViewToken(rawToken: string) {
+  const customer = await prisma.customer.findUnique({ where: { cardViewTokenHash: sha256Hex(rawToken) } });
+  if (!customer || customer.status !== "ACTIVE") {
+    return null;
+  }
+  return customer;
+}
+
+/**
  * Résout le lien "voir ma fiche client" — un secret distinct du token du code-barres (celui-ci
  * ne doit jamais changer, il est encodé dans le pass Wallet réel). À la toute première
  * consultation, ce lien est régénéré une fois : un lien vu/partagé avant cette rotation cesse de

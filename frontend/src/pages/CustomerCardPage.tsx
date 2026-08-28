@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { fetchCustomerCard, type CustomerCardInfo } from "../lib/api";
+import { customerCardBarcodeUrl, fetchCustomerCard, type CustomerCardInfo } from "../lib/api";
 import { ArchMark } from "../components/ArchMark";
 
 type LoadState = { status: "loading" } | { status: "not-found" } | { status: "ready"; card: CustomerCardInfo };
@@ -12,6 +12,9 @@ export function CustomerCardPage() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [rotatedLink, setRotatedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Toujours le token actuellement valide (celui de l'URL, ou le nouveau après rotation) —
+  // c'est celui-là qu'il faut utiliser pour charger l'image du code-barres.
+  const [activeToken, setActiveToken] = useState(token);
   // Le lien tourne une seule fois côté serveur : un double appel (React StrictMode en dev,
   // double-clic, prefetch navigateur) sur le même token ferait échouer le second. On garde une
   // trace du token déjà consommé pour ne jamais rejouer l'appel réseau pour cette même valeur.
@@ -33,6 +36,7 @@ export function CustomerCardPage() {
           const newUrl = `/ma-carte/${card.newToken}`;
           navigate(newUrl, { replace: true });
           setRotatedLink(`${window.location.origin}${newUrl}`);
+          setActiveToken(card.newToken);
         }
       })
       .catch(() => {
@@ -97,6 +101,41 @@ export function CustomerCardPage() {
           </div>
           <p className="text-xs text-black/35 font-mono mt-2">{card.lifetimePoints} pts cumulés au total</p>
         </div>
+
+        <div className="w-full rounded-2xl border border-black/10 bg-white p-5 flex flex-col items-center gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 self-start">
+            Code-barres
+          </p>
+          <img src={customerCardBarcodeUrl(activeToken)} alt="Code-barres de ma carte" className="w-full max-w-[260px]" />
+          <p className="text-xs font-mono tracking-widest text-black/50">{card.loyaltyNumber}</p>
+        </div>
+
+        {card.programType === "DISCOUNT" ? (
+          <div className="w-full rounded-2xl border border-black/10 bg-white p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 mb-2">
+              Réduction actuelle
+            </p>
+            <p className="text-2xl font-extrabold" style={{ fontFamily: "var(--font-display)" }}>
+              {card.currentDiscountPercent ? `${Number(card.currentDiscountPercent)}%` : "Aucune"}
+            </p>
+          </div>
+        ) : (
+          card.availableRewards.length > 0 && (
+            <div className="w-full rounded-2xl border border-black/10 bg-white overflow-hidden text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 px-5 pt-4 pb-2">
+                Récompenses disponibles
+              </p>
+              <ul>
+                {card.availableRewards.map((reward) => (
+                  <li key={reward.id} className="px-5 py-3 border-t border-black/5 flex items-center justify-between">
+                    <span className="text-sm font-medium">{reward.name}</span>
+                    <span className="text-xs text-black/40 font-mono">{reward.pointsCost} pts</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        )}
 
         {rotatedLink && (
           <div className="w-full rounded-2xl border border-black/10 bg-black/[0.03] p-4 flex flex-col gap-2 text-left">

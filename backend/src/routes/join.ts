@@ -6,7 +6,10 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { HttpError } from "../lib/httpError";
 import { joinCompanyProgram } from "../services/customers";
 import { generateQrCodePng } from "../services/qrCode";
-import { resolveCustomerByCardViewToken } from "../services/tokens";
+import { generateBarcodePng } from "../services/barcode";
+import { findCustomerByCardViewToken, getActiveTokenPlaintext, resolveCustomerByCardViewToken } from "../services/tokens";
+import { listRewards } from "../services/rewards";
+import { listDiscountTiers, resolveApplicableTier } from "../services/discountTiers";
 
 const router = Router();
 
@@ -140,6 +143,20 @@ router.get(
       throw new HttpError(404, "CUSTOMER_NOT_FOUND");
     }
 
+    let availableRewards: Array<{ id: string; name: string; pointsCost: number }> = [];
+    let currentDiscountPercent: string | null = null;
+
+    if (company.programType === "POINTS") {
+      const rewards = await listRewards(company.id, true);
+      availableRewards = rewards
+        .filter((r) => r.pointsCost <= customer.pointsBalance)
+        .map((r) => ({ id: r.id, name: r.name, pointsCost: r.pointsCost }));
+    } else {
+      const tiers = await listDiscountTiers(company.id);
+      const tier = resolveApplicableTier(tiers, customer.lifetimePoints);
+      currentDiscountPercent = tier ? tier.discountPercent.toString() : null;
+    }
+
     res.json({
       firstName: customer.firstName,
       lastName: customer.lastName,
@@ -150,8 +167,35 @@ router.get(
       companyLogoUrl: company.logoUrl,
       companyAccentColor: company.accentColor,
       programType: company.programType,
+      availableRewards,
+      currentDiscountPercent,
       newToken,
     });
+  }),
+);
+
+/**
+ * GET /join/customer/:token/barcode.png — le code-barres du client, sur sa propre fiche.
+ * Ne rejoue jamais la rotation du lien (voir findCustomerByCardViewToken) : seule la
+ * consultation de la fiche elle-même (au-dessus) régénère le lien à sa première ouverture.
+ */
+router.get(
+  "/customer/:token/barcode.png",
+  asyncHandler(async (req, res) => {
+    const customer = await findCustomerByCardViewToken(req.params.token);
+    if (!customer) {
+      throw new HttpError(404, "CUSTOMER_NOT_FOUND");
+    }
+
+    const activeToken = await getActiveTokenPlaintext(customer.id);
+    if (!activeToken) {
+      throw new HttpError(404, "NO_ACTIVE_CARD");
+    }
+
+    const png = await generateBarcodePng(activeToken);
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(png);
   }),
 );
 

@@ -56,6 +56,12 @@ export interface JoinResponse {
   cardViewToken: string;
 }
 
+export interface CustomerCardReward {
+  id: string;
+  name: string;
+  pointsCost: number;
+}
+
 export interface CustomerCardInfo {
   firstName: string | null;
   lastName: string | null;
@@ -66,12 +72,18 @@ export interface CustomerCardInfo {
   companyLogoUrl: string | null;
   companyAccentColor: string;
   programType: "POINTS" | "DISCOUNT";
+  availableRewards: CustomerCardReward[];
+  currentDiscountPercent: string | null;
   /** Présent une seule fois, à la première consultation : nouveau lien permanent à utiliser. */
   newToken: string | null;
 }
 
 export function fetchCustomerCard(token: string): Promise<CustomerCardInfo> {
   return request(`/join/customer/${encodeURIComponent(token)}`);
+}
+
+export function customerCardBarcodeUrl(token: string): string {
+  return `${API_BASE_URL}/join/customer/${encodeURIComponent(token)}/barcode.png`;
 }
 
 export function joinCompanyProgram(companyToken: string, payload: JoinPayload): Promise<JoinResponse> {
