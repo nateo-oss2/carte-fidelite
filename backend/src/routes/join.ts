@@ -169,6 +169,8 @@ router.get(
       programType: company.programType,
       availableRewards,
       currentDiscountPercent,
+      pointsExpiryEnabled: company.pointsExpiryEnabled,
+      pointsExpiryMonths: Math.round(company.pointsExpiryDays / 30),
       newToken,
     });
   }),

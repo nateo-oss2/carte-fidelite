@@ -100,6 +100,11 @@ export function CustomerCardPage() {
             <span className="text-xs text-black/45">points disponibles</span>
           </div>
           <p className="text-xs text-black/35 font-mono mt-2">{card.lifetimePoints} pts cumulés au total</p>
+          {card.pointsExpiryEnabled && (
+            <p className="text-xs text-black/40 mt-3 pt-3 border-t border-black/5">
+              Vos points expirent après {card.pointsExpiryMonths} mois sans achat ni dépense.
+            </p>
+          )}
         </div>
 
         <div className="w-full rounded-2xl border border-black/10 bg-white p-5 flex flex-col items-center gap-2">

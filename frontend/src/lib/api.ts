@@ -74,6 +74,8 @@ export interface CustomerCardInfo {
   programType: "POINTS" | "DISCOUNT";
   availableRewards: CustomerCardReward[];
   currentDiscountPercent: string | null;
+  pointsExpiryEnabled: boolean;
+  pointsExpiryMonths: number;
   /** Présent une seule fois, à la première consultation : nouveau lien permanent à utiliser. */
   newToken: string | null;
 }
