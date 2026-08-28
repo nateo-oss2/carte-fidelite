@@ -10,6 +10,7 @@ import {
   type BirthdayCustomer,
   type CompanyDashboardData,
 } from "../lib/companyApi";
+import { describePointsRule } from "../lib/pointsRule";
 
 export function CompanyDashboardPage() {
   const { slug = "" } = useParams();
@@ -90,7 +91,7 @@ export function CompanyDashboardPage() {
         <div>
           <p className="text-sm font-semibold mb-1">QR code d'inscription</p>
           <p className="text-xs text-black/50">
-            Affichez-le en boutique — {company.pointsPerCurrencyUnit}€ dépensé = 1 point.
+            Affichez-le en boutique — {describePointsRule(company.pointsPerCurrencyUnit)}.
           </p>
         </div>
       </div>

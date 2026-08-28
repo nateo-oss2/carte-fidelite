@@ -11,6 +11,7 @@ import {
 } from "../lib/api";
 import { ArchMark } from "../components/ArchMark";
 import { detectWalletPlatform } from "../lib/device";
+import { describePointsRule } from "../lib/pointsRule";
 
 type LoadState =
   | { status: "loading" }
@@ -124,7 +125,7 @@ export function JoinPage() {
             <div className="w-6 h-0.5 rounded-full" style={{ background: company.accentColor }} />
           </div>
           <p className="text-sm text-black/60 text-center">
-            Rejoignez {company.programName} — {company.pointsPerCurrencyUnit}€ dépensé = 1 point
+            Rejoignez {company.programName} — {describePointsRule(company.pointsPerCurrencyUnit)}
           </p>
         </div>
 

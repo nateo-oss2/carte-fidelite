@@ -231,7 +231,7 @@ export function AdminCompanyEditPage() {
             className="rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black/30"
           />
           <span className="text-xs text-black/40">
-            Ex : "1" → 1€ dépensé = 1 point. "2" → 1€ dépensé = 2 points.
+            Ex : "1" → 1€ dépensé = 1 point. "2" → 1€ dépensé = 2 points. "0.5" → 2€ dépensés = 1 point.
           </span>
         </label>
 
