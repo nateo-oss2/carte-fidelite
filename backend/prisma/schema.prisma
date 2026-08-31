@@ -109,6 +109,7 @@ model Company {
   rewards        Reward[]
   discountTiers  DiscountTier[]
   emailConfig    CompanyEmailConfig?
+  posApiCredential PosApiCredential?
   securityAlerts SecurityAlert[]
 
   @@map("companies")
@@ -503,6 +504,36 @@ model CompanyEmailConfig {
   updatedAt DateTime @updatedAt
 
   @@map("company_email_configs")
+}
+
+// Identifiants d'accès à l'API du logiciel de caisse d'une entreprise (Zelty, Lightspeed,
+// L'Addition, ou tout autre) — stockés génériquement en attendant qu'un adaptateur spécifique
+// à ce logiciel soit écrit pour réellement en tirer les ventes. Une entreprise = un logiciel
+// de caisse à la fois (comme la config e-mail).
+model PosApiCredential {
+  id        String  @id @default(uuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Nom libre du logiciel (ex: "Zelty", "Lightspeed") — permet de savoir quel adaptateur
+  // écrire/utiliser, sans figer la liste des logiciels supportés dans le schéma.
+  providerName String
+
+  // Chiffré (même mécanisme que le mot de passe SMTP ci-dessus) — jamais en clair en base.
+  apiKeyEncrypted String
+
+  // Optionnelle : certaines API demandent une URL de base ou un identifiant de boutique en
+  // plus de la clé (ex: sous-domaine propre à l'entreprise chez son logiciel de caisse).
+  apiBaseUrl String?
+
+  // Renseigné uniquement une fois qu'un adaptateur réel relie ces identifiants à la création
+  // automatique de transactions — tant que c'est null, la clé est stockée mais inactive.
+  connectedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pos_api_credentials")
 }
 
 // ---------------------------------------------------------------------------

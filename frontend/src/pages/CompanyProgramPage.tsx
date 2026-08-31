@@ -8,12 +8,15 @@ import {
   deleteDiscountTier,
   deleteReward,
   getEmailConfig,
+  getPosApiCredential,
   getProgram,
   listTerminals,
   removeEmailConfig,
+  removePosApiCredential,
   runInactivityReminderNow,
   runPointsExpiryNow,
   saveEmailConfig,
+  savePosApiCredential,
   setTerminalActive,
   updateInactivityReminder,
   updateOffPeakBonus,
@@ -27,6 +30,7 @@ import {
   type InactivityReminderConfig,
   type OffPeakBonusConfig,
   type PointsExpiryConfig,
+  type PosApiStatus,
   type ProgramData,
   type Reward,
   type TerminalKey,
@@ -151,8 +155,158 @@ export function CompanyProgramPage() {
 
       {isAdmin && (
         <div className="mt-10 pt-8 border-t border-black/10">
+          <ConnectPosApiSection slug={slug} />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mt-10 pt-8 border-t border-black/10">
           <IntegrationSection slug={slug} />
         </div>
+      )}
+    </div>
+  );
+}
+
+function ConnectPosApiSection({ slug }: { slug: string }) {
+  const [status, setStatus] = useState<PosApiStatus | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [providerName, setProviderName] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [apiBaseUrl, setApiBaseUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    getPosApiCredential(slug).then((s) => {
+      setStatus(s);
+      if (s.configured) {
+        setProviderName(s.providerName);
+        setApiBaseUrl(s.apiBaseUrl ?? "");
+      }
+    });
+  }, [slug]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSavedMessage(null);
+    try {
+      await savePosApiCredential(slug, {
+        providerName: providerName.trim(),
+        apiKey,
+        apiBaseUrl: apiBaseUrl.trim() || undefined,
+      });
+      setSavedMessage("Enregistré");
+      setEditing(false);
+      setApiKey("");
+      refresh();
+    } catch {
+      setError("Vérifiez les champs saisis.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemove() {
+    await removePosApiCredential(slug);
+    setProviderName("");
+    setApiBaseUrl("");
+    refresh();
+  }
+
+  if (!status) return null;
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-black/45 mb-3">
+        Connecter le logiciel de caisse
+      </p>
+      <p className="text-xs text-black/50 mb-3">
+        Si votre logiciel de caisse (Zelty, Lightspeed, L'Addition…) vous a fourni une clé API, enregistrez-la ici.
+        Elle est stockée de façon chiffrée, prête à être utilisée dès que le branchement spécifique à ce logiciel
+        est mis en place.
+      </p>
+
+      {status.configured && !editing ? (
+        <div className="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-2">
+          <p className="text-sm">
+            Logiciel enregistré : <strong>{status.providerName}</strong>
+          </p>
+          <p className="text-xs text-black/40">
+            {status.connectedAt
+              ? "Branchement actif — les ventes créditent déjà les points automatiquement."
+              : "Clé enregistrée, en attente du branchement spécifique à ce logiciel."}
+          </p>
+          {savedMessage && <p className="text-sm text-green-700">{savedMessage}</p>}
+          <div className="flex gap-3 mt-1">
+            <button type="button" onClick={() => setEditing(true)} className="text-xs font-semibold text-black/60 hover:text-black">
+              Modifier
+            </button>
+            <button type="button" onClick={handleRemove} className="text-xs font-semibold text-red-600 hover:text-red-800">
+              Supprimer
+            </button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSave} className="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-black/45">Nom du logiciel</span>
+            <input
+              value={providerName}
+              onChange={(e) => setProviderName(e.target.value)}
+              placeholder="Ex: Zelty, Lightspeed, L'Addition…"
+              className="rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-black/45">Clé API</span>
+            <input
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              type="password"
+              placeholder="Clé fournie par le logiciel de caisse"
+              className="rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-black/45">
+              URL de l'API (optionnel)
+            </span>
+            <input
+              value={apiBaseUrl}
+              onChange={(e) => setApiBaseUrl(e.target.value)}
+              placeholder="Si le logiciel en fournit une"
+              className="rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+            />
+          </label>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl py-2.5 px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60"
+              style={{ background: "#171512" }}
+            >
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+            {status.configured && (
+              <button type="button" onClick={() => setEditing(false)} className="text-sm text-black/50 hover:text-black">
+                Annuler
+              </button>
+            )}
+          </div>
+        </form>
       )}
     </div>
   );

@@ -448,3 +448,22 @@ export function createTerminalKey(slug: string, label: string): Promise<{ id: st
 export function setTerminalActive(slug: string, id: string, active: boolean): Promise<TerminalKey> {
   return request(`/company/${slug}/terminals/${id}`, { method: "PATCH", body: JSON.stringify({ active }) });
 }
+
+export type PosApiStatus =
+  | { configured: false }
+  | { configured: true; providerName: string; apiBaseUrl: string | null; connectedAt: string | null; updatedAt: string };
+
+export function getPosApiCredential(slug: string): Promise<PosApiStatus> {
+  return request(`/company/${slug}/pos-api`);
+}
+
+export function savePosApiCredential(
+  slug: string,
+  input: { providerName: string; apiKey: string; apiBaseUrl?: string },
+): Promise<{ configured: true }> {
+  return request(`/company/${slug}/pos-api`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export function removePosApiCredential(slug: string): Promise<void> {
+  return request(`/company/${slug}/pos-api`, { method: "DELETE" });
+}
