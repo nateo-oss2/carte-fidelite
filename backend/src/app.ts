@@ -19,6 +19,7 @@ import companyCustomersRouter from "./routes/companyCustomers";
 import adminAuditLogsRouter from "./routes/adminAuditLogs";
 import companyProgramRouter from "./routes/companyProgram";
 import companyEmailConfigRouter from "./routes/companyEmailConfig";
+import companyTerminalsRouter from "./routes/companyTerminals";
 import adminSecurityAlertsRouter from "./routes/adminSecurityAlerts";
 import adminBackupsRouter from "./routes/adminBackups";
 import { HttpError } from "./lib/httpError";
@@ -59,6 +60,7 @@ app.use("/company/:slug/scan", companyScanRouter);
 app.use("/company/:slug/customers", companyCustomersRouter);
 app.use("/company/:slug/program", companyProgramRouter);
 app.use("/company/:slug/email-config", companyEmailConfigRouter);
+app.use("/company/:slug/terminals", companyTerminalsRouter);
 app.use("/admin/security-alerts", adminSecurityAlertsRouter);
 app.use("/admin/backups", adminBackupsRouter);
 

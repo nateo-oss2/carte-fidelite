@@ -4,14 +4,17 @@ import {
   companyMe,
   createDiscountTier,
   createReward,
+  createTerminalKey,
   deleteDiscountTier,
   deleteReward,
   getEmailConfig,
   getProgram,
+  listTerminals,
   removeEmailConfig,
   runInactivityReminderNow,
   runPointsExpiryNow,
   saveEmailConfig,
+  setTerminalActive,
   updateInactivityReminder,
   updateOffPeakBonus,
   updatePointsExpiry,
@@ -26,6 +29,7 @@ import {
   type PointsExpiryConfig,
   type ProgramData,
   type Reward,
+  type TerminalKey,
 } from "../lib/companyApi";
 
 export function CompanyProgramPage() {
@@ -142,6 +146,189 @@ export function CompanyProgramPage() {
       {isAdmin && (
         <div className="mt-10 pt-8 border-t border-black/10">
           <PointsExpirySection slug={slug} initial={program.pointsExpiry} />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mt-10 pt-8 border-t border-black/10">
+          <IntegrationSection slug={slug} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IntegrationSection({ slug }: { slug: string }) {
+  const [terminals, setTerminals] = useState<TerminalKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [label, setLabel] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newKey, setNewKey] = useState<{ label: string; apiKey: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [showDocs, setShowDocs] = useState(false);
+
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string;
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    listTerminals(slug)
+      .then((res) => setTerminals(res.terminals))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function handleCreate(e: FormEvent) {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const result = await createTerminalKey(slug, label.trim());
+      setNewKey({ label: result.label, apiKey: result.apiKey });
+      setCopied(false);
+      setLabel("");
+      refresh();
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleToggle(terminal: TerminalKey) {
+    await setTerminalActive(slug, terminal.id, !terminal.active);
+    refresh();
+  }
+
+  function handleCopy() {
+    if (!newKey) return;
+    navigator.clipboard.writeText(newKey.apiKey).then(() => setCopied(true));
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-black/45 mb-3">
+        Intégration caisse / API externe
+      </p>
+      <p className="text-xs text-black/50 mb-3">
+        Créez une clé API pour brancher votre logiciel de caisse (ou un automate Zapier/Make) : chaque vente peut
+        alors créditer les points automatiquement, sans passer par l'écran de scan.
+      </p>
+
+      {newKey && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 mb-3 flex flex-col gap-2">
+          <p className="text-sm text-black/70">
+            Clé créée pour <strong>{newKey.label}</strong>. Copiez-la maintenant — elle ne sera plus jamais affichée.
+          </p>
+          <code className="text-xs font-mono break-all bg-white rounded-lg px-3 py-2 border border-black/10">
+            {newKey.apiKey}
+          </code>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="self-start rounded-xl py-2 px-4 text-xs font-bold uppercase tracking-wider text-white"
+              style={{ background: "#171512" }}
+            >
+              {copied ? "Copié !" : "Copier la clé"}
+            </button>
+            <button type="button" onClick={() => setNewKey(null)} className="text-xs text-black/50 hover:text-black">
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-black/40 mb-3">Chargement…</p>
+      ) : terminals.length > 0 ? (
+        <ul className="flex flex-col gap-2 mb-3">
+          {terminals.map((terminal) => (
+            <li
+              key={terminal.id}
+              className={`rounded-xl border border-black/10 bg-white p-3.5 flex items-center gap-3 ${
+                !terminal.active ? "opacity-50" : ""
+              }`}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{terminal.label}</p>
+                <p className="text-xs text-black/40">
+                  {terminal.active ? "Active" : "Révoquée"} · créée le{" "}
+                  {new Date(terminal.createdAt).toLocaleDateString("fr-FR")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggle(terminal)}
+                className={`text-xs font-semibold flex-shrink-0 ${
+                  terminal.active ? "text-red-600 hover:text-red-800" : "text-black/50 hover:text-black"
+                }`}
+              >
+                {terminal.active ? "Révoquer" : "Réactiver"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-black/40 mb-3">Aucune clé pour le moment.</p>
+      )}
+
+      <form onSubmit={handleCreate} className="rounded-2xl border border-black/10 bg-white p-4 flex items-end gap-3 mb-3">
+        <label className="flex flex-col gap-1.5 flex-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-black/45">
+            Nom de l'intégration (ex: "Zelty")
+          </span>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            className="rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+            required
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={creating}
+          className="rounded-xl py-2.5 px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60"
+          style={{ background: "#171512" }}
+        >
+          {creating ? "…" : "Créer une clé"}
+        </button>
+      </form>
+
+      <button
+        type="button"
+        onClick={() => setShowDocs((v) => !v)}
+        className="text-xs font-semibold text-black/50 hover:text-black"
+      >
+        {showDocs ? "Masquer la documentation" : "Voir comment brancher l'API"}
+      </button>
+
+      {showDocs && (
+        <div className="mt-3 rounded-2xl border border-black/10 bg-black/[0.03] p-4 flex flex-col gap-3 text-xs text-black/70 leading-relaxed">
+          <p>
+            Deux appels HTTP suffisent, à faire depuis votre logiciel de caisse ou un automate (Zapier, Make…), en
+            en-tête <code className="font-mono">X-Terminal-Key</code> avec la clé créée ci-dessus :
+          </p>
+          <div>
+            <p className="font-semibold mb-1">1. Trouver le client (téléphone ou e-mail connu de la caisse)</p>
+            <pre className="bg-white rounded-lg p-3 overflow-x-auto font-mono">
+{`POST ${apiBaseUrl}/transactions/resolve-customer
+X-Terminal-Key: <votre clé>
+{ "phone": "0612345678" }
+→ { "customerId": "..." }`}
+            </pre>
+          </div>
+          <div>
+            <p className="font-semibold mb-1">2. Créditer les points de l'achat</p>
+            <pre className="bg-white rounded-lg p-3 overflow-x-auto font-mono">
+{`POST ${apiBaseUrl}/transactions
+X-Terminal-Key: <votre clé>
+{ "customerId": "...", "amount": "37.50", "idempotencyKey": "<id unique de la vente>" }`}
+            </pre>
+          </div>
+          <p className="text-black/40">
+            "idempotencyKey" doit être l'identifiant unique de la vente côté caisse : si le même appel est renvoyé
+            deux fois (retry réseau), les points ne sont crédités qu'une seule fois.
+          </p>
         </div>
       )}
     </div>

@@ -429,3 +429,22 @@ export function redeemScanReward(slug: string, customerId: string, rewardId: str
     body: JSON.stringify({ customerId, rewardId, idempotencyKey: crypto.randomUUID() }),
   });
 }
+
+export interface TerminalKey {
+  id: string;
+  label: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export function listTerminals(slug: string): Promise<{ terminals: TerminalKey[] }> {
+  return request(`/company/${slug}/terminals`);
+}
+
+export function createTerminalKey(slug: string, label: string): Promise<{ id: string; label: string; apiKey: string }> {
+  return request(`/company/${slug}/terminals`, { method: "POST", body: JSON.stringify({ label }) });
+}
+
+export function setTerminalActive(slug: string, id: string, active: boolean): Promise<TerminalKey> {
+  return request(`/company/${slug}/terminals/${id}`, { method: "PATCH", body: JSON.stringify({ active }) });
+}

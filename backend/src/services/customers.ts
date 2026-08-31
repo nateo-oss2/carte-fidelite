@@ -373,3 +373,39 @@ export async function getCustomerDetail(companyId: string, customerId: string) {
     })),
   };
 }
+
+/**
+ * Résout un client à partir de son téléphone ou son e-mail — utilisé par l'API terminal
+ * (intégration caisse externe) qui n'a jamais accès au customerId interne ni au token du
+ * code-barres, seulement à ce que le logiciel de caisse connaît déjà du client. Le téléphone
+ * n'étant pas garanti unique (contrairement à l'e-mail, unique par entreprise), un doublon est
+ * traité comme une non-résolution plutôt que de risquer de créditer le mauvais client.
+ */
+export async function resolveCustomerForPos(
+  companyId: string,
+  input: { phone?: string; email?: string },
+): Promise<{ status: "FOUND"; customer: { id: string; firstName: string | null; lastName: string | null; loyaltyNumber: string } } | { status: "NOT_FOUND" | "AMBIGUOUS" }> {
+  const email = input.email?.trim().toLowerCase();
+  if (email) {
+    const customer = await prisma.customer.findUnique({ where: { companyId_email: { companyId, email } } });
+    if (customer && customer.status === "ACTIVE") {
+      return { status: "FOUND", customer };
+    }
+  }
+
+  const phone = input.phone?.trim();
+  if (phone) {
+    const matches = await prisma.customer.findMany({
+      where: { companyId, phone, status: "ACTIVE" },
+      take: 2,
+    });
+    if (matches.length === 1) {
+      return { status: "FOUND", customer: matches[0] };
+    }
+    if (matches.length > 1) {
+      return { status: "AMBIGUOUS" };
+    }
+  }
+
+  return { status: "NOT_FOUND" };
+}

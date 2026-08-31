@@ -4,12 +4,49 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { HttpError } from "../lib/httpError";
 import { requireTerminalAuth } from "../middleware/terminalAuth";
 import { recordPurchase, redeemReward, refundTransaction } from "../services/transactions";
+import { resolveCustomerForPos } from "../services/customers";
 
 const router = Router();
 
 // Toute route de ce routeur exige un terminal authentifié (voir section 8/9 du brief :
 // un simple scan ne doit jamais suffire à créer une transaction).
 router.use(requireTerminalAuth);
+
+const resolveCustomerSchema = z
+  .object({
+    phone: z.string().trim().min(1).max(20).optional(),
+    email: z.string().trim().toLowerCase().email().max(160).optional(),
+  })
+  .refine((v) => v.phone || v.email, { message: "phone ou email requis" });
+
+/**
+ * POST /transactions/resolve-customer — trouve le client à partir de ce qu'un logiciel de
+ * caisse externe connaît déjà (téléphone ou e-mail), pour ensuite créditer ses points via
+ * POST /transactions ci-dessous. Point d'entrée pensé pour une intégration caisse (webhook,
+ * Zapier/Make...) : le terminal authentifié n'a jamais besoin de connaître notre customerId
+ * interne ni le token du code-barres à l'avance.
+ */
+router.post(
+  "/resolve-customer",
+  asyncHandler(async (req, res) => {
+    const parsed = resolveCustomerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new HttpError(400, "INVALID_INPUT");
+    }
+
+    const result = await resolveCustomerForPos(req.terminal!.companyId, parsed.data);
+    if (result.status !== "FOUND") {
+      throw new HttpError(404, result.status === "AMBIGUOUS" ? "CUSTOMER_AMBIGUOUS" : "CUSTOMER_NOT_FOUND");
+    }
+
+    res.json({
+      customerId: result.customer.id,
+      loyaltyNumber: result.customer.loyaltyNumber,
+      firstName: result.customer.firstName,
+      lastName: result.customer.lastName,
+    });
+  }),
+);
 
 const createTransactionSchema = z.object({
   customerId: z.string().uuid(),
