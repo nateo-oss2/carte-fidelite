@@ -34,7 +34,11 @@ function getPlatformEmailConfig() {
   };
 }
 
-/** Le compte partagé de la plateforme est-il configuré ? Jamais la clé elle-même. */
+/**
+ * Le compte partagé de la plateforme est-il configuré ? Jamais l'adresse ni la clé — une
+ * entreprise ne doit voir dans son dashboard que SA PROPRE adresse d'expédition si elle en a
+ * renseigné une, jamais celle du compte partagé utilisé en coulisses.
+ */
 export function isPlatformEmailConfigured(): boolean {
   return getPlatformEmailConfig() !== null;
 }
