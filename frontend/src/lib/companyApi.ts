@@ -348,26 +348,16 @@ export async function deleteDiscountTier(slug: string, tierId: string): Promise<
 
 export type EmailConfigStatus =
   | { configured: false; usingPlatformDefault: boolean }
-  | {
-      configured: true;
-      smtpHost: string;
-      smtpPort: number;
-      smtpSecure: boolean;
-      smtpUser: string;
-      fromAddress: string;
-    };
+  | { configured: true; fromAddress: string; hasOwnApiKey: boolean };
 
 export function getEmailConfig(slug: string): Promise<EmailConfigStatus> {
   return request(`/company/${slug}/email-config`);
 }
 
 export interface EmailConfigInput {
-  smtpHost: string;
-  smtpPort: number;
-  smtpSecure: boolean;
-  smtpUser: string;
-  smtpPassword: string;
   fromAddress: string;
+  /** Optionnelle : sans clé propre, l'envoi utilise le compte Resend partagé de la plateforme. */
+  smtpPassword?: string;
 }
 
 export function saveEmailConfig(slug: string, input: EmailConfigInput): Promise<{ configured: boolean }> {

@@ -720,12 +720,8 @@ function EmailConfigSection({ slug }: { slug: string }) {
     setSavedMessage(null);
     try {
       await saveEmailConfig(slug, {
-        smtpHost: "smtp.resend.com",
-        smtpPort: 465,
-        smtpSecure: true,
-        smtpUser: "resend",
-        smtpPassword,
         fromAddress: fromAddress.trim(),
+        smtpPassword: smtpPassword.trim() || undefined,
       });
       setSavedMessage("Configuration enregistrée");
       setEditing(false);
@@ -754,7 +750,8 @@ function EmailConfigSection({ slug }: { slug: string }) {
       {status.configured && !editing ? (
         <div className="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-2">
           <p className="text-sm">
-            Envoi configuré depuis <strong>{status.fromAddress}</strong> (compte Resend propre à cette entreprise)
+            Envoi configuré depuis <strong>{status.fromAddress}</strong>
+            {status.hasOwnApiKey ? " (compte Resend propre à cette entreprise)" : " (via le compte partagé)"}
           </p>
           {savedMessage && <p className="text-sm text-green-700">{savedMessage}</p>}
           <div className="flex gap-3 mt-1">
@@ -777,23 +774,11 @@ function EmailConfigSection({ slug }: { slug: string }) {
             onClick={() => setEditing(true)}
             className="self-start text-xs font-semibold text-black/60 hover:text-black mt-1"
           >
-            Utiliser ma propre adresse d'expédition à la place
+            Personnaliser mon adresse d'expédition
           </button>
         </div>
       ) : (
         <form onSubmit={handleSave} className="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-3">
-          <p className="text-xs text-black/50 leading-relaxed">
-            Créez un compte gratuit sur <span className="font-mono">resend.com</span> (jusqu'à 3000 e-mails/mois),
-            allez dans "API Keys", créez-en une et collez-la ici.
-          </p>
-          <input
-            value={smtpPassword}
-            onChange={(e) => setSmtpPassword(e.target.value)}
-            type="password"
-            placeholder="Clé API Resend (commence par re_)"
-            className="rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
-            required
-          />
           <input
             value={fromAddress}
             onChange={(e) => setFromAddress(e.target.value)}
@@ -803,8 +788,21 @@ function EmailConfigSection({ slug }: { slug: string }) {
             required
           />
           <p className="text-xs text-black/40 -mt-1">
-            Pas encore de domaine vérifié sur Resend ? Utilisez <span className="font-mono">onboarding@resend.dev</span>{" "}
-            pour tester sans configuration DNS.
+            Cette adresse ne fonctionnera vraiment que si c'est <span className="font-mono">onboarding@resend.dev</span>,
+            ou une adresse sur un domaine vérifié sur le compte Resend qui l'envoie (le compte partagé ci-dessus, ou
+            le vôtre si vous en collez un ci-dessous).
+          </p>
+          <input
+            value={smtpPassword}
+            onChange={(e) => setSmtpPassword(e.target.value)}
+            type="password"
+            placeholder="Clé API Resend personnelle (optionnel)"
+            className="rounded-xl border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-black/30"
+          />
+          <p className="text-xs text-black/40 -mt-1">
+            Laissez vide pour utiliser le compte partagé de la plateforme. Renseignez votre propre clé (créée sur{" "}
+            <span className="font-mono">resend.com</span> → "API Keys") seulement si vous voulez votre propre compte
+            et votre propre domaine vérifié.
           </p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

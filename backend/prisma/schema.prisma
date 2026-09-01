@@ -489,14 +489,12 @@ model CompanyEmailConfig {
   companyId String  @unique
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  smtpHost   String
-  smtpPort   Int     @default(587)
-  smtpSecure Boolean @default(false)
-  smtpUser   String
-
   // Chiffré (AES-256-GCM, même mécanisme que les tokens clients) — jamais en clair en base,
   // mais réversible : on doit pouvoir s'authentifier auprès du serveur SMTP à chaque envoi.
-  smtpPasswordEncrypted String
+  // Optionnelle : une entreprise peut ne renseigner QUE son adresse d'expédition et laisser
+  // vide sa propre clé — dans ce cas, l'envoi utilise le compte Resend partagé de la
+  // plateforme (voir companyEmailConfig.ts), avec cette adresse-ci malgré tout.
+  smtpPasswordEncrypted String?
 
   fromAddress String
 

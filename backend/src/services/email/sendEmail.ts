@@ -1,8 +1,7 @@
 export interface SmtpCredentials {
-  smtpHost: string;
-  smtpPort: number;
-  smtpSecure: boolean;
-  smtpUser: string;
+  /** Clé API Resend — celle de l'entreprise si elle en a une, sinon celle du compte partagé
+   * de la plateforme (voir services/companyEmailConfig.ts). Nommé "smtpPassword" pour rester
+   * compatible avec le nom historique du champ, même si Resend n'utilise pas SMTP. */
   smtpPassword: string;
   fromAddress: string;
   /** Nom affiché comme expéditeur (ex: "Café Lucine") — sans ça, seule l'adresse s'affiche. */
@@ -16,11 +15,9 @@ interface SendEmailInput {
 }
 
 /**
- * Envoie un e-mail réel via l'API HTTP de Resend (jamais un compte partagé par toute la
- * plateforme — chaque entreprise envoie depuis sa propre clé, avec sa propre réputation
- * d'expéditeur). smtpPassword contient en réalité la clé API Resend — les champs
- * smtpHost/smtpPort/smtpSecure/smtpUser ne sont pas utilisés ici (hérités du modèle SMTP
- * générique initial) mais conservés en base pour compatibilité du schéma existant.
+ * Envoie un e-mail réel via l'API HTTP de Resend, avec la clé et l'adresse résolues par
+ * getDecryptedEmailConfig (propres à l'entreprise, ou repli sur le compte partagé — voir ce
+ * fichier pour la logique).
  *
  * Le SMTP classique (port 587/465) est bloqué par défaut sur Railway comme sur la plupart
  * des hébergeurs cloud (anti-spam) — d'où l'utilisation de l'API HTTP de Resend (port 443),

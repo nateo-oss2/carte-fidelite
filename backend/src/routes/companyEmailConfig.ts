@@ -10,7 +10,7 @@ const router = Router({ mergeParams: true });
 
 router.use(requireEmployeeAuth, requireEmployeeRole("ADMIN"));
 
-/** GET /company/:slug/email-config — ne renvoie JAMAIS le mot de passe, juste s'il est configuré. */
+/** GET /company/:slug/email-config — ne renvoie JAMAIS la clé, juste ce qui est configuré. */
 router.get(
   "/",
   asyncHandler(async (req, res) => {
@@ -21,22 +21,17 @@ router.get(
     }
     res.json({
       configured: true,
-      smtpHost: config.smtpHost,
-      smtpPort: config.smtpPort,
-      smtpSecure: config.smtpSecure,
-      smtpUser: config.smtpUser,
       fromAddress: config.fromAddress,
+      hasOwnApiKey: config.smtpPasswordEncrypted !== null,
     });
   }),
 );
 
 const emailConfigSchema = z.object({
-  smtpHost: z.string().trim().min(1).max(255),
-  smtpPort: z.number().int().min(1).max(65535),
-  smtpSecure: z.boolean(),
-  smtpUser: z.string().trim().min(1).max(255),
-  smtpPassword: z.string().min(1).max(500),
   fromAddress: z.string().trim().email().max(255),
+  // Optionnelle : sans clé propre, l'envoi utilise le compte Resend partagé de la plateforme,
+  // avec cette adresse-ci quand même (voir services/companyEmailConfig.ts).
+  smtpPassword: z.union([z.string().trim().min(1).max(500), z.literal("")]).optional(),
 });
 
 router.put(
@@ -47,14 +42,17 @@ router.put(
       throw new HttpError(400, "INVALID_INPUT");
     }
 
-    await upsertEmailConfig(req.employee!.companyId, parsed.data);
+    await upsertEmailConfig(req.employee!.companyId, {
+      fromAddress: parsed.data.fromAddress,
+      smtpPassword: parsed.data.smtpPassword || undefined,
+    });
 
     await recordAuditLog({
       companyId: req.employee!.companyId,
       actorType: "EMPLOYEE",
       employeeId: req.employee!.id,
       action: "EMAIL_CONFIG_UPDATED",
-      metadata: { smtpHost: parsed.data.smtpHost, fromAddress: parsed.data.fromAddress },
+      metadata: { fromAddress: parsed.data.fromAddress, hasOwnApiKey: Boolean(parsed.data.smtpPassword) },
       ipAddress: req.ip ?? null,
     });
 
