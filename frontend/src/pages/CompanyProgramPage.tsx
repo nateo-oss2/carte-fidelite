@@ -754,7 +754,7 @@ function EmailConfigSection({ slug }: { slug: string }) {
       {status.configured && !editing ? (
         <div className="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-2">
           <p className="text-sm">
-            Envoi configuré depuis <strong>{status.fromAddress}</strong>
+            Envoi configuré depuis <strong>{status.fromAddress}</strong> (compte Resend propre à cette entreprise)
           </p>
           {savedMessage && <p className="text-sm text-green-700">{savedMessage}</p>}
           <div className="flex gap-3 mt-1">
@@ -762,9 +762,23 @@ function EmailConfigSection({ slug }: { slug: string }) {
               Modifier
             </button>
             <button type="button" onClick={handleRemove} className="text-xs font-semibold text-red-600 hover:text-red-800">
-              Supprimer
+              Revenir au compte partagé
             </button>
           </div>
+        </div>
+      ) : !status.configured && status.usingPlatformDefault && !editing ? (
+        <div className="rounded-2xl border border-green-200 bg-green-50 p-4 flex flex-col gap-2">
+          <p className="text-sm text-green-800">
+            ✓ Actif — les e-mails automatiques fonctionnent déjà via le compte partagé de la plateforme, sans rien à
+            configurer.
+          </p>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="self-start text-xs font-semibold text-black/60 hover:text-black mt-1"
+          >
+            Utiliser ma propre adresse d'expédition à la place
+          </button>
         </div>
       ) : (
         <form onSubmit={handleSave} className="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-3">
@@ -804,7 +818,7 @@ function EmailConfigSection({ slug }: { slug: string }) {
             >
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
-            {status.configured && (
+            {(status.configured || status.usingPlatformDefault) && (
               <button type="button" onClick={() => setEditing(false)} className="text-sm text-black/50 hover:text-black">
                 Annuler
               </button>

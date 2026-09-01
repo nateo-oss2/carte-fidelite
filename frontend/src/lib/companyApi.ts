@@ -347,7 +347,7 @@ export async function deleteDiscountTier(slug: string, tierId: string): Promise<
 }
 
 export type EmailConfigStatus =
-  | { configured: false }
+  | { configured: false; usingPlatformDefault: boolean }
   | {
       configured: true;
       smtpHost: string;

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { HttpError } from "../lib/httpError";
 import { requireEmployeeAuth, requireEmployeeRole } from "../middleware/companyAuth";
-import { deleteEmailConfig, getEmailConfig, upsertEmailConfig } from "../services/companyEmailConfig";
+import { deleteEmailConfig, getEmailConfig, isPlatformEmailConfigured, upsertEmailConfig } from "../services/companyEmailConfig";
 import { recordAuditLog } from "../services/auditLog";
 
 const router = Router({ mergeParams: true });
@@ -16,7 +16,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const config = await getEmailConfig(req.employee!.companyId);
     if (!config) {
-      res.json({ configured: false });
+      res.json({ configured: false, usingPlatformDefault: isPlatformEmailConfigured() });
       return;
     }
     res.json({
