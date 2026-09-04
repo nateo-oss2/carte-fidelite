@@ -72,8 +72,6 @@ export function CustomerCardPage() {
         <WalletCardPreview
           companyName={card.companyName}
           accentColor={card.companyAccentColor}
-          secondaryColor={card.companySecondaryColor}
-          cardTemplate={card.companyCardTemplate}
           logoUrl={card.companyLogoUrl}
         />
 

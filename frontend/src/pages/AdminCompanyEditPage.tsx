@@ -14,14 +14,7 @@ import {
   type CompanyDetail,
   type CreateEmployeeResponse,
 } from "../lib/adminApi";
-import { WalletCardPreview, type CardTemplate } from "../components/WalletCardPreview";
-
-const CARD_TEMPLATES: { value: CardTemplate; label: string }[] = [
-  { value: "BANNER", label: "Bandeau" },
-  { value: "GRADIENT", label: "Dégradé" },
-  { value: "FRAME", label: "Cadre" },
-  { value: "SPLIT", label: "Split" },
-];
+import { WalletCardPreview } from "../components/WalletCardPreview";
 
 export function AdminCompanyEditPage() {
   const { id = "" } = useParams();
@@ -33,9 +26,6 @@ export function AdminCompanyEditPage() {
   const [name, setName] = useState("");
   const [programName, setProgramName] = useState("");
   const [accentColor, setAccentColor] = useState("#B08D57");
-  const [secondaryColorEnabled, setSecondaryColorEnabled] = useState(false);
-  const [secondaryColor, setSecondaryColor] = useState("#171512");
-  const [cardTemplate, setCardTemplate] = useState<CardTemplate>("BANNER");
   const [pointsRule, setPointsRule] = useState("1");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -56,9 +46,6 @@ export function AdminCompanyEditPage() {
       setName(c.name);
       setProgramName(c.programName);
       setAccentColor(c.accentColor);
-      setSecondaryColorEnabled(Boolean(c.secondaryColor));
-      setSecondaryColor(c.secondaryColor ?? "#171512");
-      setCardTemplate(c.cardTemplate);
       setPointsRule(c.pointsPerCurrencyUnit);
       setLogoPreview(c.logoUrl);
     });
@@ -94,8 +81,6 @@ export function AdminCompanyEditPage() {
         name: name.trim(),
         programName: programName.trim(),
         accentColor,
-        secondaryColor: secondaryColorEnabled ? secondaryColor : "",
-        cardTemplate,
         pointsPerCurrencyUnit: pointsRule,
       });
       setCompany((prev) => (prev ? { ...prev, ...updated } : prev));
@@ -132,13 +117,7 @@ export function AdminCompanyEditPage() {
         className="rounded-xl py-6 mb-6"
         style={{ background: "linear-gradient(180deg, #f3f2f0 0%, #eae8e5 100%)" }}
       >
-        <WalletCardPreview
-          companyName={name}
-          accentColor={accentColor}
-          secondaryColor={secondaryColorEnabled ? secondaryColor : null}
-          cardTemplate={cardTemplate}
-          logoUrl={logoPreview}
-        />
+        <WalletCardPreview companyName={name} accentColor={accentColor} logoUrl={logoPreview} />
       </div>
 
       <div className="mb-6 flex flex-col items-center gap-2">
@@ -188,62 +167,9 @@ export function AdminCompanyEditPage() {
             className="h-11 w-16 rounded-lg border border-black/10"
           />
           <span className="text-xs text-black/40">
-            C'est la seule couleur reprise sur la vraie carte Apple Wallet (fond uni) — le modèle et la 2e couleur
-            ci-dessous ne s'appliquent que sur le dashboard, la page d'inscription et la fiche client.
+            C'est cette couleur qui apparaît partout : dashboard, page d'inscription, fiche client, et la vraie carte
+            Apple Wallet (fond uni).
           </span>
-        </label>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-black/45">
-            <input
-              type="checkbox"
-              checked={secondaryColorEnabled}
-              onChange={(e) => setSecondaryColorEnabled(e.target.checked)}
-              className="rounded border-black/20"
-            />
-            2e couleur (dégradé, optionnel)
-          </label>
-          {secondaryColorEnabled && (
-            <input
-              type="color"
-              value={secondaryColor}
-              onChange={(e) => setSecondaryColor(e.target.value)}
-              className="h-11 w-16 rounded-lg border border-black/10"
-            />
-          )}
-        </div>
-
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-black/45">Modèle de carte</span>
-          <div className="grid grid-cols-2 gap-2">
-            {CARD_TEMPLATES.map((tpl) => (
-              <button
-                key={tpl.value}
-                type="button"
-                onClick={() => setCardTemplate(tpl.value)}
-                className={`flex flex-col items-center gap-1.5 rounded-xl border py-2 ${
-                  cardTemplate === tpl.value ? "border-black/60 bg-black/5" : "border-black/10"
-                }`}
-              >
-                <div className="scale-[0.4] origin-center -my-6">
-                  <WalletCardPreview
-                    companyName={name}
-                    accentColor={accentColor}
-                    secondaryColor={secondaryColorEnabled ? secondaryColor : null}
-                    cardTemplate={tpl.value}
-                    logoUrl={logoPreview}
-                  />
-                </div>
-                <span
-                  className={`text-xs font-semibold uppercase tracking-wide ${
-                    cardTemplate === tpl.value ? "text-black" : "text-black/50"
-                  }`}
-                >
-                  {tpl.label}
-                </span>
-              </button>
-            ))}
-          </div>
         </label>
 
         <label className="flex flex-col gap-1.5">

@@ -47,8 +47,6 @@ export interface UpdateCompanyInput {
   name?: string;
   programName?: string;
   accentColor?: string;
-  secondaryColor?: string | null;
-  cardTemplate?: "BANNER" | "GRADIENT" | "FRAME" | "SPLIT";
   pointsPerCurrencyUnit?: string;
 }
 

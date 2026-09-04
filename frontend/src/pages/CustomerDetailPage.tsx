@@ -118,8 +118,6 @@ export function CustomerDetailPage() {
         <WalletCardPreview
           companyName={customer.companyName}
           accentColor={customer.companyAccentColor}
-          secondaryColor={customer.companySecondaryColor}
-          cardTemplate={customer.companyCardTemplate}
           logoUrl={customer.companyLogoUrl}
         />
       </div>

@@ -41,25 +41,14 @@ enum ProgramType {
   DISCOUNT
 }
 
-// Modèle visuel de la carte — chacun applique accentColor/secondaryColor différemment sur
-// toute la carte (pas seulement un trait décoratif), avec son propre agencement du logo.
-enum CardTemplate {
-  BANNER   // Bandeau haut coloré, logo dessus, corps blanc en dessous.
-  GRADIENT // Fond en dégradé (ou couleur unie) sur toute la carte, texte blanc.
-  FRAME    // Cadre épais coloré, centre blanc, logo + nom au centre.
-  SPLIT    // Carte divisée en deux panneaux de couleurs différentes.
-}
-
 model Company {
   id                    String        @id @default(uuid())
   name                  String
   slug                  String        @unique
   logoUrl               String?
+  // Couleur unique de la carte — c'est la seule qui compte réellement partout, y compris sur
+  // la vraie carte Apple Wallet (qui n'accepte qu'un fond uni, jamais un dégradé ni un modèle).
   accentColor           String        @default("#B08D57")
-  // 2e couleur optionnelle — quand renseignée, la carte affiche un dégradé/double trait
-  // entre accentColor et secondaryColor plutôt qu'une seule couleur unie.
-  secondaryColor        String?
-  cardTemplate          CardTemplate  @default(BANNER)
   programName           String        @default("Programme fidélité")
   // Points attribués par unité monétaire dépensée (règle par défaut : 1€ = 1 point)
   pointsPerCurrencyUnit Decimal       @default(0.5) @db.Decimal(6, 2)

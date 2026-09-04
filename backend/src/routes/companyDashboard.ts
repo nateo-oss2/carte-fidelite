@@ -18,8 +18,6 @@ router.get(
       company: {
         name: company!.name,
         accentColor: company!.accentColor,
-        secondaryColor: company!.secondaryColor,
-        cardTemplate: company!.cardTemplate,
         logoUrl: company!.logoUrl,
         joinToken: company!.joinToken,
         pointsPerCurrencyUnit: company!.pointsPerCurrencyUnit,

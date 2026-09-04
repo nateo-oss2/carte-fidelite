@@ -51,8 +51,6 @@ export interface CompanyDashboardData {
   company: {
     name: string;
     accentColor: string;
-    secondaryColor: string | null;
-    cardTemplate: "BANNER" | "GRADIENT" | "FRAME" | "SPLIT";
     logoUrl: string | null;
     joinToken: string;
     pointsPerCurrencyUnit: string;
@@ -179,8 +177,6 @@ export interface CustomerDetail {
   companyName: string;
   companyLogoUrl: string | null;
   companyAccentColor: string;
-  companySecondaryColor: string | null;
-  companyCardTemplate: "BANNER" | "GRADIENT" | "FRAME" | "SPLIT";
   programType: "POINTS" | "DISCOUNT";
   availableRewards: AvailableReward[];
   currentDiscountPercent: string | null;

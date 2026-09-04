@@ -150,8 +150,6 @@ export interface CompanyDetail {
   logoUrl: string | null;
   programName: string;
   accentColor: string;
-  secondaryColor: string | null;
-  cardTemplate: "BANNER" | "GRADIENT" | "FRAME" | "SPLIT";
   pointsPerCurrencyUnit: string;
   status: string;
   joinToken: string;
@@ -165,8 +163,6 @@ export interface UpdateCompanyInput {
   name?: string;
   programName?: string;
   accentColor?: string;
-  secondaryColor?: string;
-  cardTemplate?: "BANNER" | "GRADIENT" | "FRAME" | "SPLIT";
   pointsPerCurrencyUnit?: string;
 }
 

@@ -44,8 +44,6 @@ router.get(
       logoUrl: company.logoUrl,
       programName: company.programName,
       accentColor: company.accentColor,
-      secondaryColor: company.secondaryColor,
-      cardTemplate: company.cardTemplate,
       pointsPerCurrencyUnit: company.pointsPerCurrencyUnit,
     });
   }),
@@ -168,8 +166,6 @@ router.get(
       companyName: company.name,
       companyLogoUrl: company.logoUrl,
       companyAccentColor: company.accentColor,
-      companySecondaryColor: company.secondaryColor,
-      companyCardTemplate: company.cardTemplate,
       programType: company.programType,
       availableRewards,
       currentDiscountPercent,

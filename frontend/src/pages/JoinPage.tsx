@@ -118,8 +118,6 @@ export function JoinPage() {
           <WalletCardPreview
             companyName={company.companyName}
             accentColor={company.accentColor}
-            secondaryColor={company.secondaryColor}
-            cardTemplate={company.cardTemplate}
             logoUrl={company.logoUrl}
           />
           <p className="text-sm text-black/60 text-center">

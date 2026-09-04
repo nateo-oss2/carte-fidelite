@@ -352,8 +352,6 @@ export async function getCustomerDetail(companyId: string, customerId: string) {
     companyName: company!.name,
     companyLogoUrl: company!.logoUrl,
     companyAccentColor: company!.accentColor,
-    companySecondaryColor: company!.secondaryColor,
-    companyCardTemplate: company!.cardTemplate,
     programType: company!.programType,
     availableRewards,
     currentDiscountPercent,
