@@ -51,7 +51,7 @@ model Company {
   accentColor           String        @default("#B08D57")
   programName           String        @default("Programme fidélité")
   // Points attribués par unité monétaire dépensée (règle par défaut : 1€ = 1 point)
-  pointsPerCurrencyUnit Decimal       @default(0.5) @db.Decimal(6, 2)
+  pointsPerCurrencyUnit Decimal       @default(1) @db.Decimal(6, 2)
   status                CompanyStatus @default(ACTIVE)
 
   // POINTS : les points s'échangent contre des récompenses (Reward) définies par l'entreprise.
