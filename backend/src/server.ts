@@ -4,6 +4,9 @@
 // qui est fragile — un module lu avant que Prisma ne soit importé pouvait recevoir `undefined`.
 import "dotenv/config";
 
+import { bootstrapAppleWalletCerts } from "./lib/appleCertsBootstrap";
+bootstrapAppleWalletCerts();
+
 import { app } from "./app";
 import { startInactivityReminderScheduler } from "./scheduler/inactivityReminderJob";
 import { startBackupScheduler } from "./scheduler/backupJob";
