@@ -11,6 +11,8 @@ interface BuildPassInput {
   serialNumber: string;
   authenticationToken: string;
   barcodeMessage: string;
+  /** Affiché en texte sous le code-barres — pour une saisie manuelle s'il ne scanne pas. */
+  loyaltyNumber: string;
 }
 
 /**
@@ -38,6 +40,7 @@ export async function buildApplePkpass(input: BuildPassInput): Promise<Buffer> {
     authenticationToken: input.authenticationToken,
     webServiceURL,
     barcodeMessage: input.barcodeMessage,
+    loyaltyNumber: input.loyaltyNumber,
   });
 
   // Icône blanche neutre en placeholder — à remplacer par le vrai logo de l'entreprise

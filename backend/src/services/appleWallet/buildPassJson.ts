@@ -8,6 +8,8 @@ export interface ApplePassInput {
   webServiceURL: string;
   /** Token brut du client, encodé tel quel dans le code-barres. */
   barcodeMessage: string;
+  /** Affiché en texte sous le code-barres — pour une saisie manuelle s'il ne scanne pas. */
+  loyaltyNumber: string;
 }
 
 function hexToRgb(hex: string): string {
@@ -51,6 +53,7 @@ export function buildPassJson(input: ApplePassInput) {
         format: "PKBarcodeFormatCode128",
         message: input.barcodeMessage,
         messageEncoding: "iso-8859-1",
+        altText: input.loyaltyNumber,
       },
     ],
   };

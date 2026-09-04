@@ -41,6 +41,7 @@ router.get(
       serialNumber: walletPass.serialNumber,
       authenticationToken: walletPass.appleAuthToken!,
       barcodeMessage: token,
+      loyaltyNumber: customer.loyaltyNumber,
     });
 
     res.setHeader("Content-Type", "application/vnd.apple.pkpass");
@@ -187,6 +188,7 @@ router.get(
       serialNumber: walletPass.serialNumber,
       authenticationToken: walletPass.appleAuthToken!,
       barcodeMessage: activeToken,
+      loyaltyNumber: customer.loyaltyNumber,
     });
 
     res.setHeader("Content-Type", "application/vnd.apple.pkpass");
