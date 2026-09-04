@@ -187,6 +187,10 @@ export function AdminCompanyEditPage() {
             onChange={(e) => setAccentColor(e.target.value)}
             className="h-11 w-16 rounded-lg border border-black/10"
           />
+          <span className="text-xs text-black/40">
+            C'est la seule couleur reprise sur la vraie carte Apple Wallet (fond uni) — le modèle et la 2e couleur
+            ci-dessous ne s'appliquent que sur le dashboard, la page d'inscription et la fiche client.
+          </span>
         </label>
 
         <div className="flex flex-col gap-1.5">
